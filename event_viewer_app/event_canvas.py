@@ -21,7 +21,7 @@ except ImportError:
 from .qt_compat import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
 )
-from .qt_compat import Qt, Signal
+from .qt_compat import Qt, Signal, QTimer
 
 
 class EventCanvas(QWidget):
@@ -37,6 +37,10 @@ class EventCanvas(QWidget):
         self._canvas = None
         self._zoom_label = None
         self._hover_annot = None
+        self._redraw_timer = QTimer(self)
+        self._redraw_timer.setSingleShot(True)
+        self._redraw_timer.setInterval(30)
+        self._redraw_timer.timeout.connect(self._do_redraw)
         self._setup_ui()
 
     def _setup_ui(self):
@@ -161,16 +165,26 @@ class EventCanvas(QWidget):
         ax = event.inaxes
         if event.modifiers & Qt.ControlModifier:
             self._set_zoom(self._zoom + (10 if event.button == 'up' else -10))
-        else:
-            s = 0.8 if event.button == 'up' else 1.25
-            cx, cy = event.xdata, event.ydata
-            if cx is None or cy is None:
-                return
-            xmin, xmax = ax.get_xlim()
-            ymin, ymax = ax.get_ylim()
-            ax.set_xlim(cx - (cx - xmin) * s, cx + (xmax - cx) * s)
-            ax.set_ylim(cy - (cy - ymin) * s, cy + (ymax - cy) * s)
-            self._canvas.draw()
+            return
+
+        # Only zoom waveform axes (with lines), not PMT pattern axes
+        if len(ax.lines) == 0:
+            return
+
+        s = 0.8 if event.button == 'up' else 1.25
+        cx, cy = event.xdata, event.ydata
+        if cx is None or cy is None:
+            return
+        xmin, xmax = ax.get_xlim()
+        ymin, ymax = ax.get_ylim()
+        if ymax <= ymin or xmax <= xmin:
+            return
+        ax.set_xlim(cx - (cx - xmin) * s, cx + (xmax - cx) * s)
+        ax.set_ylim(cy - (cy - ymin) * s, cy + (ymax - cy) * s)
+        self._redraw_timer.start()  # debounced redraw
+
+    def _do_redraw(self):
+        self._canvas.draw_idle()
 
     def _on_hover(self, event):
         if event.inaxes is None:
