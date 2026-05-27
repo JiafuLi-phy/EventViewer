@@ -1174,7 +1174,7 @@ def plot_peak_zoom(
 
     t_peak = int(peak["time"])
     t_end = int(peak["endtime"]) if "endtime" in peak.dtype.names else t_peak + int(peak["length"]) * int(peak["dt"])
-    margin = max(300, int((t_end - t_peak) * 0.5))
+    margin = max(500, int((t_end - t_peak) * 1.0))
     t0 = t_peak - margin
 
     # ── Zoomed peak waveform ──
@@ -1246,7 +1246,7 @@ def plot_peak_zoom(
         for ax_pmt, arr_name in [(ax_pmt_top, "top"), (ax_pmt_bot, "bottom")]:
             plot_pmt_hit_pattern(area, pmt_positions, to_pe,
                                  array_name=arr_name, ax=ax_pmt, cmap="plasma",
-                                 vmin=0, marker_size=12,
+                                 vmin=0, marker_size=60,
                                  show_colorbar=True, label=pattern_label)
             ax_pmt.set_title(f"{label} {arr_name.capitalize()} PMT{pmt_title_suffix}")
 
