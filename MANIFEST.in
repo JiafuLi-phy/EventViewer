@@ -1,0 +1,9 @@
+include README.md
+include run_app.py
+include EventViewer.spec
+include requirements.txt
+recursive-include event_viewer_app *.py
+recursive-include event_plotter *.py
+recursive-include scripts *.py *.sh
+recursive-include scripts/output *.npz
+include scripts/output/events_run_023756.npz

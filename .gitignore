@@ -1,7 +1,10 @@
 # Build artifacts
 dist/
 release/
+release_v2/
+release_package/
 build/
+*.egg-info/
 *.spec.bak
 
 # PyInstaller

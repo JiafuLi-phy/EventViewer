@@ -1,0 +1,63 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "xenonnt-event-viewer"
+version = "2.0.0"
+description = "Cross-platform desktop application for browsing XENONnT event waveforms, PMT hit patterns, and signal properties"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "Jiafu Li"},
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Physics",
+]
+requires-python = ">=3.9"
+dependencies = [
+    "numpy>=1.21",
+    "matplotlib>=3.5",
+    "PySide6>=6.3",
+]
+
+[project.optional-dependencies]
+strax = [
+    "strax>=0.17",
+    "straxen>=0.17",
+]
+build = [
+    "pyinstaller>=5",
+]
+dev = [
+    "xenonnt-event-viewer[strax,build]",
+]
+
+[project.scripts]
+xenonnt-event-viewer = "run_app:main"
+extract-event-bundle = "scripts.extract_event_bundle:main"
+plot-events = "scripts.plot_events:main"
+
+[project.urls]
+Homepage = "https://github.com/JiafuLi-phy/EventViewer"
+Repository = "https://github.com/JiafuLi-phy/EventViewer.git"
+Releases = "https://github.com/JiafuLi-phy/EventViewer/releases"
+
+[tool.setuptools]
+py-modules = ["run_app"]
+
+[tool.setuptools.packages.find]
+include = ["event_viewer_app*", "event_plotter*", "scripts*"]
+
+[tool.setuptools.package-data]
+event_viewer_app = ["*.py"]
+event_plotter = ["*.py"]
