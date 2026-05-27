@@ -805,11 +805,11 @@ def _draw_3layer_waveform(
 
             if has_top_waveform(np.array([p])):
                 legend_artists["top"].extend(plot_peak_component_waveform(
-                    p, "top", t0, ax, "#2196F3"  # bright blue,
+                    p, "top", t0, ax, "#2196F3",
                     alpha_fill=0.16, linewidth=0.25 * lw_scale, label=top_lbl,
                 ))
                 legend_artists["bottom"].extend(plot_peak_component_waveform(
-                    p, "bottom", t0, ax, "#4CAF50"  # bright green,
+                    p, "bottom", t0, ax, "#4CAF50",
                     alpha_fill=0.16, linewidth=0.25 * lw_scale, label=bot_lbl,
                 ))
             legend_artists["total"].extend(plot_peak_component_waveform(
@@ -849,7 +849,7 @@ def _draw_3layer_waveform(
         )
         artists = _plot_step_arrays(
             ax, x, [y_top, y_bot, y_total],
-            ["#2196F3"  # bright blue, "#4CAF50"  # bright green, style.NEUTRAL_BLACK],
+            ["#2196F3", "#4CAF50", style.NEUTRAL_BLACK],
             ["Top", "Bottom", "Total"],
             linewidths=[0.45, 0.45, 0.8],
             alphas=[0.18, 0.18, 0.12],
@@ -893,13 +893,13 @@ def _draw_3layer_waveform(
         p_top["area"] = area_tot * frac_top
         lw_scale = 3 if highlight_idx is not None and orig_i == highlight_idx else 1
         plot_peak_waveform_model(p_top, t0=t0, ax=ax,
-            color="#2196F3"  # bright blue, alpha_fill=0.2, linewidth=0.3 * lw_scale,
+            color="#2196F3", alpha_fill=0.2, linewidth=0.3 * lw_scale,
             label=top_lbl)
 
         p_bot = np.array(p, copy=True)
         p_bot["area"] = area_tot * (1 - frac_top)
         plot_peak_waveform_model(p_bot, t0=t0, ax=ax,
-            color="#4CAF50"  # bright green, alpha_fill=0.2, linewidth=0.3 * lw_scale,
+            color="#4CAF50", alpha_fill=0.2, linewidth=0.3 * lw_scale,
             label=bot_lbl)
 
         plot_peak_waveform_model(p, t0=t0, ax=ax,
