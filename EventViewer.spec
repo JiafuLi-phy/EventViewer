@@ -3,7 +3,7 @@
 
 import os
 import sys
-from PyInstaller.utils.hooks import collect_data_files, collect_submodules
+from PyInstaller.utils.hooks import collect_data_files, collect_submodules, collect_dynamic_libs
 
 _PROJ = SPECPATH
 
@@ -21,9 +21,8 @@ hiddenimports = [
     "PySide6.QtNetwork",
     # matplotlib backends
     "matplotlib.backends.backend_qtagg",
-    # numpy
-    "numpy.core._methods",
-    "numpy.lib.format",
+    # numpy (collect all submodules for numpy 2.x compat)
+    *collect_submodules("numpy"),
     # strax
     "strax",
 ]
