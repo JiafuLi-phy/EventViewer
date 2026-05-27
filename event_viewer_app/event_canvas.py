@@ -98,7 +98,7 @@ class EventCanvas(QWidget):
         import warnings
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", message=".*not compatible with tight_layout.*")
-            self._fig.tight_layout(pad=2.0)
+            self._fig.tight_layout(pad=2.0, rect=[0, 0.02, 1, 0.93])
         self._canvas.draw_idle()
         # Tell scroll area the real canvas size
         self._canvas.resize(self._canvas.sizeHint())
