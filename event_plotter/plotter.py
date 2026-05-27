@@ -650,7 +650,7 @@ def plot_event_full(
         s2_hp_kwargs = {}
 
     # default hit-pattern options — vmax computed per area array below
-    hp_defaults = dict(log_scale=False, marker_size=12, show_colorbar=True, label="Area [PE]")
+    hp_defaults = dict(log_scale=False, marker_size=25, show_colorbar=True, label="Area [PE]")
     for d in (s1_hp_kwargs, s2_hp_kwargs):
         for k, v in hp_defaults.items():
             d.setdefault(k, v)

@@ -21,20 +21,19 @@ except ImportError:
     from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT
 
 # Import Qt widgets via compat layer
-from .qt_compat import QWidget, QVBoxLayout, QLabel
-from .qt_compat import Signal
+from .qt_compat import QWidget, QVBoxLayout, QLabel, QScrollArea
+from .qt_compat import Qt, Signal
 
 
 class EventCanvas(QWidget):
     """Widget containing the matplotlib figure canvas and navigation toolbar.
 
-    The toolbar is optional — on older matplotlib + PySide2 combos
-    it may fail to construct, in which case keyboard shortcuts are
-    available: p=pan, o=zoom, h=home, s=save.
+    The canvas is wrapped in a QScrollArea so users can scroll when the figure
+    is larger than the viewport.  Keyboard shortcuts available when toolbar
+    fails: p=pan, o=zoom, h=home, s=save.
 
     Signals:
         peak_clicked(int): emitted when user clicks on a peak region.
-            Carries the original peak index in the full peaks array.
     """
 
     peak_clicked = Signal(int)
@@ -45,7 +44,7 @@ class EventCanvas(QWidget):
         self._canvas = None
         self._toolbar = None
         self._click_cid = None
-        self._resizing = False
+        self._scroll = None
         self._setup_ui()
 
     def _setup_ui(self):
@@ -53,15 +52,10 @@ class EventCanvas(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(2)
 
-        self._fig = Figure(figsize=(14, 10), facecolor="white")
+        # Figure with moderate size; canvas auto-fills the scroll area
+        self._fig = Figure(figsize=(16, 12), facecolor="white")
         self._canvas = FigureCanvasQTAgg(self._fig)
-        self._canvas.setSizePolicy(
-            QWidget().sizePolicy().horizontalPolicy(),
-            QWidget().sizePolicy().verticalPolicy(),
-        )
-        # Let widget fill available space
-        self._canvas.setMinimumWidth(400)
-        self._canvas.setMinimumHeight(300)
+        self._canvas.setMinimumSize(800, 600)
 
         # Connect matplotlib events for interactive peak clicking
         self._click_cid = self._canvas.mpl_connect(
@@ -81,20 +75,14 @@ class EventCanvas(QWidget):
 
         if self._toolbar is not None:
             layout.addWidget(self._toolbar)
-        layout.addWidget(self._canvas)
 
-    def resizeEvent(self, event):
-        """Auto-scale figure to fit widget size."""
-        super().resizeEvent(event)
-        if self._resizing or self._canvas is None:
-            return
-        w = self._canvas.width()
-        h = self._canvas.height()
-        if w > 0 and h > 0:
-            self._resizing = True
-            dpi = self._fig.get_dpi()
-            self._fig.set_size_inches((w - 20) / dpi, (h - 20) / dpi)
-            self._resizing = False
+        # Wrap canvas in scroll area for pan/scroll when figure is large
+        self._scroll = QScrollArea()
+        self._scroll.setWidgetResizable(True)
+        self._scroll.setWidget(self._canvas)
+        self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self._scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        layout.addWidget(self._scroll)
 
     @property
     def figure(self) -> Figure:
@@ -115,6 +103,10 @@ class EventCanvas(QWidget):
             warnings.filterwarnings("ignore", message=".*not compatible with tight_layout.*")
             self._fig.tight_layout(pad=1.5)
         self._canvas.draw_idle()
+        # Update canvas size to match figure after tight_layout
+        size = self._fig.get_size_inches()
+        dpi = self._fig.get_dpi()
+        self._canvas.setMinimumSize(int(size[0] * dpi), int(size[1] * dpi))
 
     def set_message(self, text: str):
         """Show a text message on the canvas (no data state)."""
@@ -127,7 +119,6 @@ class EventCanvas(QWidget):
 
     def _on_canvas_click(self, event):
         """Handle matplotlib button press — hit-test peaks and emit signal."""
-        # Only respond to single clicks (not double-clicks used by zoom tool)
         if event.dblclick:
             return
         if event.inaxes is None:
@@ -144,9 +135,7 @@ class EventCanvas(QWidget):
         if x is None:
             return
 
-        # Proximity-based hit test: find the nearest peak within tolerance.
-        # Narrow peaks are hard to click with strict span matching.
-        MAX_CLICK_DIST = 0.0005  # 500 microseconds tolerance
+        MAX_CLICK_DIST = 0.0005
         best = None
         best_dist = MAX_CLICK_DIST
         for region in peak_regions:
@@ -155,7 +144,6 @@ class EventCanvas(QWidget):
             if dist < best_dist:
                 best_dist = dist
                 best = region
-            # Also check exact span match for wide peaks
             elif region['x_start'] <= x <= region['x_end']:
                 if best is None or region['area'] > best['area']:
                     best = region
