@@ -1,0 +1,156 @@
+name: Build Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  # ── Linux ───────────────────────────────────────────────────────
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxkbcommon-x11-0 libxcb-icccm4 libxcb-image0 \
+            libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-xinerama0 \
+            libxcb-xfixes0 libegl1 libgl1
+
+      - name: Install Python deps
+        run: |
+          pip install pyside6 matplotlib numpy strax pyinstaller
+
+      - name: Build
+        run: |
+          pyinstaller EventViewer.spec --distpath dist --workpath /tmp/pyinstaller_linux
+
+      - name: Package release
+        run: |
+          mkdir -p release/XENONnT-EventViewer-linux
+          cp dist/XENONnT-EventViewer release/XENONnT-EventViewer-linux/
+          cp scripts/output/events_run_023756.npz release/XENONnT-EventViewer-linux/ 2>/dev/null || true
+          cp README.md release/XENONnT-EventViewer-linux/ 2>/dev/null || true
+          cd release && tar czf XENONnT-EventViewer-linux.tar.gz XENONnT-EventViewer-linux/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-build
+          path: release/XENONnT-EventViewer-linux.tar.gz
+
+  # ── Windows ─────────────────────────────────────────────────────
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python deps
+        run: |
+          pip install pyside6 matplotlib numpy strax pyinstaller
+
+      - name: Build
+        run: |
+          pyinstaller EventViewer.spec --distpath dist --workpath $env:TEMP\pyinstaller_win
+
+      - name: Package release
+        run: |
+          New-Item -ItemType Directory -Path release\XENONnT-EventViewer-windows -Force
+          Copy-Item dist\XENONnT-EventViewer.exe release\XENONnT-EventViewer-windows\
+          Copy-Item scripts\output\events_run_023756.npz release\XENONnT-EventViewer-windows\ -ErrorAction SilentlyContinue
+          Compress-Archive -Path release\XENONnT-EventViewer-windows\* -DestinationPath release\XENONnT-EventViewer-windows.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: release/XENONnT-EventViewer-windows.zip
+
+  # ── macOS ARM64 (Apple Silicon) ─────────────────────────────────
+  build-macos-arm64:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python deps
+        run: |
+          pip install pyside6 matplotlib numpy strax pyinstaller
+
+      - name: Build
+        run: |
+          pyinstaller EventViewer.spec --distpath dist --workpath /tmp/pyinstaller_mac
+
+      - name: Package release
+        run: |
+          mkdir -p release/XENONnT-EventViewer-macos-arm64
+          cp dist/XENONnT-EventViewer release/XENONnT-EventViewer-macos-arm64/
+          cp scripts/output/events_run_023756.npz release/XENONnT-EventViewer-macos-arm64/ 2>/dev/null || true
+          cd release && tar czf XENONnT-EventViewer-macos-arm64.tar.gz XENONnT-EventViewer-macos-arm64/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-arm64-build
+          path: release/XENONnT-EventViewer-macos-arm64.tar.gz
+
+  # ── macOS x64 (Intel) ──────────────────────────────────────────
+  build-macos-x64:
+    runs-on: macos-13
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python deps
+        run: |
+          pip install pyside6 matplotlib numpy strax pyinstaller
+
+      - name: Build
+        run: |
+          pyinstaller EventViewer.spec --distpath dist --workpath /tmp/pyinstaller_mac_x64
+
+      - name: Package release
+        run: |
+          mkdir -p release/XENONnT-EventViewer-macos-x64
+          cp dist/XENONnT-EventViewer release/XENONnT-EventViewer-macos-x64/
+          cp scripts/output/events_run_023756.npz release/XENONnT-EventViewer-macos-x64/ 2>/dev/null || true
+          cd release && tar czf XENONnT-EventViewer-macos-x64.tar.gz XENONnT-EventViewer-macos-x64/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-x64-build
+          path: release/XENONnT-EventViewer-macos-x64.tar.gz
+
+  # ── GitHub Release ──────────────────────────────────────────────
+  release:
+    needs: [build-linux, build-windows, build-macos-arm64, build-macos-x64]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            artifacts/linux-build/*.tar.gz
+            artifacts/windows-build/*.zip
+            artifacts/macos-arm64-build/*.tar.gz
+            artifacts/macos-x64-build/*.tar.gz
+          draft: true
+          generate_release_notes: true

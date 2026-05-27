@@ -1,0 +1,36 @@
+# Build artifacts
+dist/
+release/
+build/
+*.spec.bak
+
+# PyInstaller
+/tmp/pyinstaller_*/
+__pycache__/
+*.pyc
+*.pyo
+
+# Scripts not for distribution
+scripts/setup_github.sh
+
+# Output (keep .npz bundles)
+scripts/output/*.pdf
+scripts/output/*.png
+scripts/output/*.svg
+scripts/*.out
+scripts/*.err
+
+# Large binaries
+*.exe
+*.dll
+
+# Cache
+resource_cache/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
