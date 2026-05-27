@@ -270,7 +270,7 @@ def _plot_step_arrays(ax, x, series, colors, labels, linewidths=None, alphas=Non
     """Draw one or more already-binned waveforms as filled step arrays."""
     artists = {}
     if linewidths is None:
-        linewidths = [0.8] * len(series)
+        linewidths = [2.4] * len(series)
     if alphas is None:
         alphas = [0.25] * len(series)
     for y, color, label, lw, alpha in zip(series, colors, labels, linewidths, alphas):
@@ -805,11 +805,11 @@ def _draw_3layer_waveform(
 
             if has_top_waveform(np.array([p])):
                 legend_artists["top"].extend(plot_peak_component_waveform(
-                    p, "top", t0, ax, style.VIOLET,
+                    p, "top", t0, ax, "#2196F3"  # bright blue,
                     alpha_fill=0.16, linewidth=0.25 * lw_scale, label=top_lbl,
                 ))
                 legend_artists["bottom"].extend(plot_peak_component_waveform(
-                    p, "bottom", t0, ax, "#E67E22",
+                    p, "bottom", t0, ax, "#4CAF50"  # bright green,
                     alpha_fill=0.16, linewidth=0.25 * lw_scale, label=bot_lbl,
                 ))
             legend_artists["total"].extend(plot_peak_component_waveform(
@@ -849,7 +849,7 @@ def _draw_3layer_waveform(
         )
         artists = _plot_step_arrays(
             ax, x, [y_top, y_bot, y_total],
-            [style.VIOLET, "#E67E22", style.NEUTRAL_BLACK],
+            ["#2196F3"  # bright blue, "#4CAF50"  # bright green, style.NEUTRAL_BLACK],
             ["Top", "Bottom", "Total"],
             linewidths=[0.45, 0.45, 0.8],
             alphas=[0.18, 0.18, 0.12],
@@ -893,13 +893,13 @@ def _draw_3layer_waveform(
         p_top["area"] = area_tot * frac_top
         lw_scale = 3 if highlight_idx is not None and orig_i == highlight_idx else 1
         plot_peak_waveform_model(p_top, t0=t0, ax=ax,
-            color=style.VIOLET, alpha_fill=0.2, linewidth=0.3 * lw_scale,
+            color="#2196F3"  # bright blue, alpha_fill=0.2, linewidth=0.3 * lw_scale,
             label=top_lbl)
 
         p_bot = np.array(p, copy=True)
         p_bot["area"] = area_tot * (1 - frac_top)
         plot_peak_waveform_model(p_bot, t0=t0, ax=ax,
-            color="#E67E22", alpha_fill=0.2, linewidth=0.3 * lw_scale,
+            color="#4CAF50"  # bright green, alpha_fill=0.2, linewidth=0.3 * lw_scale,
             label=bot_lbl)
 
         plot_peak_waveform_model(p, t0=t0, ax=ax,
@@ -1236,9 +1236,9 @@ def plot_peak_zoom(
     peak_bot["area"] = area_bot
 
     # Plot top (violet/orange)
-    top_color = style.VIOLET
-    bot_color = "#E67E22"  # orange
-    sum_color = color
+    top_color = "#2196F3"   # bright blue
+    bot_color = "#4CAF50"   # bright green
+    sum_color = "#F44336"   # bright red
 
     if has_waveform(np.array([peak])):
         artists_top = []
@@ -1246,15 +1246,15 @@ def plot_peak_zoom(
         if has_top_waveform(np.array([peak])):
             artists_top = plot_peak_component_waveform(
                 peak, "top", t0, ax_wf, top_color,
-                alpha_fill=0.25, linewidth=0.8, label=f"Top PMT ({area_top:.0f} PE)",
+                alpha_fill=0.25, linewidth=2.4, label=f"Top PMT ({area_top:.0f} PE)",
             )
             artists_bot = plot_peak_component_waveform(
                 peak, "bottom", t0, ax_wf, bot_color,
-                alpha_fill=0.25, linewidth=0.8, label=f"Bottom PMT ({area_bot:.0f} PE)",
+                alpha_fill=0.25, linewidth=2.4, label=f"Bottom PMT ({area_bot:.0f} PE)",
             )
         artists_sum = plot_peak_component_waveform(
             peak, "total", t0, ax_wf, sum_color,
-            alpha_fill=0.18, linewidth=1.5, label=f"Total ({area_total:.0f} PE)",
+            alpha_fill=0.18, linewidth=4.5, label=f"Total ({area_total:.0f} PE)",
         )
         if not artists_top:
             artists_top = artists_sum
@@ -1282,11 +1282,11 @@ def plot_peak_zoom(
         ax_wf.set_ylabel("Intensity [PE/ns]")
     else:
         artists_top = plot_peak_waveform_model(peak_top, t0=t0, ax=ax_wf,
-            color=top_color, alpha_fill=0.3, linewidth=0.8, label=f"Top PMT ({area_top:.0f} PE)")
+            color=top_color, alpha_fill=0.3, linewidth=2.4, label=f"Top PMT ({area_top:.0f} PE)")
         artists_bot = plot_peak_waveform_model(peak_bot, t0=t0, ax=ax_wf,
-            color=bot_color, alpha_fill=0.3, linewidth=0.8, label=f"Bottom PMT ({area_bot:.0f} PE)")
+            color=bot_color, alpha_fill=0.3, linewidth=2.4, label=f"Bottom PMT ({area_bot:.0f} PE)")
         artists_sum = plot_peak_waveform_model(peak, t0=t0, ax=ax_wf,
-            color=sum_color, alpha_fill=0.4, linewidth=1.5, label=f"Total ({area_total:.0f} PE)")
+            color=sum_color, alpha_fill=0.4, linewidth=4.5, label=f"Total ({area_total:.0f} PE)")
         ax_wf.set_ylabel("Model pulse [PE/ns]")
 
     ax_wf.set_title(f"{label} Peak  |  area={area_total:.0f} PE", fontweight="bold")
