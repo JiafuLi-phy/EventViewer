@@ -170,7 +170,7 @@ class EventCanvas(QWidget):
             ymin, ymax = ax.get_ylim()
             ax.set_xlim(cx - (cx - xmin) * s, cx + (xmax - cx) * s)
             ax.set_ylim(cy - (cy - ymin) * s, cy + (ymax - cy) * s)
-            self._canvas.draw_idle()
+            self._canvas.draw()
 
     def _on_hover(self, event):
         if event.inaxes is None:
