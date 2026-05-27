@@ -116,6 +116,9 @@ class EventCanvas(QWidget):
                 layout.addWidget(self._canvas)
         old_canvas.setParent(None)
         old_canvas.deleteLater()
+        # Update toolbar to use new canvas (fixes save button)
+        if self._toolbar is not None:
+            self._toolbar.canvas = self._canvas
         self._update_canvas_size()
 
     def draw(self):
