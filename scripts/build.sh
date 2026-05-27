@@ -37,8 +37,24 @@ case "$PLATFORM" in
         ;;
 
     mac)
-        echo "=== Building macOS app ==="
-        echo "On macOS, run:"
-        echo "  pyinstaller EventViewer.spec --distpath dist/mac --workpath /tmp/pyinstaller_build_mac"
+        echo "=== Building macOS app (ARM64 native) ==="
+        pyinstaller EventViewer.spec \
+            --distpath dist \
+            --workpath /tmp/pyinstaller_mac \
+            --clean
+        echo ""
+        echo "=== Creating DMG ==="
+        mkdir -p pkg/XENONnT-EventViewer-macos
+        cp dist/XENONnT-EventViewer pkg/XENONnT-EventViewer-macos/
+        cp scripts/output/events_run_023756.npz pkg/XENONnT-EventViewer-macos/ 2>/dev/null || true
+        cp README.md pkg/XENONnT-EventViewer-macos/ 2>/dev/null || true
+        hdiutil create -volname "XENONnT-EventViewer" \
+            -srcfolder pkg/XENONnT-EventViewer-macos \
+            -ov -format UDZO \
+            pkg/XENONnT-EventViewer-macos-arm64.dmg
+        echo ""
+        echo "Done: pkg/XENONnT-EventViewer-macos-arm64.dmg"
+        ls -lh pkg/XENONnT-EventViewer-macos-arm64.dmg
+        rm -rf pkg/XENONnT-EventViewer-macos
         ;;
 esac

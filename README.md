@@ -12,9 +12,9 @@ Go to [Releases](https://github.com/JiafuLi-phy/EventViewer/releases) and downlo
 | Platform | File | 
 |---|---|
 | **Linux** (x86_64) | `XENONnT-EventViewer-linux.tar.gz` |
-| **Windows** (x86_64) | `XENONnT-EventViewer-windows.zip` |
-| **macOS** (Apple Silicon) | `XENONnT-EventViewer-macos-arm64.tar.gz` |
-| **macOS** (Intel) | `XENONnT-EventViewer-macos-x64.tar.gz` |
+| **Windows** (x86_64) | `XENONnT-EventViewer-windows.zip` (`.exe`) |
+| **macOS** (Apple Silicon) | `XENONnT-EventViewer-macos-arm64.dmg` |
+| **macOS** (Intel) | `XENONnT-EventViewer-macos-x64.dmg` |
 
 ## Quick Start
 
@@ -22,7 +22,7 @@ Go to [Releases](https://github.com/JiafuLi-phy/EventViewer/releases) and downlo
 2. Run the executable (no installation required):
    - **Linux**: `./XENONnT-EventViewer`
    - **Windows**: Double-click `XENONnT-EventViewer.exe`
-   - **macOS**: `./XENONnT-EventViewer` (may need `xattr -cr` first)
+   - **macOS**: Open `.dmg`, drag to Applications, double-click `XENONnT-EventViewer`
 3. **File → Open Event Bundle** (Ctrl+O) to load a `.npz` file
 4. Browse events in the left panel, click to view waveforms
 
