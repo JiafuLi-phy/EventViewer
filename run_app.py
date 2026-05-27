@@ -49,9 +49,12 @@ def main():
     # ── auto-detect sample bundle ──
     npz_path = args.npz or args.npz_opt or args.bundle_opt
     if not npz_path:
-        # Look for *.npz next to the executable / in cwd
+        # Look for *.npz next to the executable / in cwd / in PyInstaller bundle
         candidates = []
-        for d in (_APP_DIR, os.getcwd()):
+        search_dirs = [_APP_DIR, os.getcwd()]
+        if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+            search_dirs.insert(0, sys._MEIPASS)
+        for d in search_dirs:
             try:
                 for f in sorted(os.listdir(d)):
                     if f.endswith(".npz"):
@@ -72,6 +75,13 @@ def main():
             n = 0
         if n:
             window._browser._on_data_loaded(n, f"Data: {npz_path}")
+    else:
+        # No auto-detected file — show welcome message with instructions
+        window._canvas.set_message(
+            "Welcome to XENONnT Event Viewer\n\n"
+            "File → Open Event Bundle (Ctrl+O)\n"
+            "to load a .npz event data file"
+        )
 
     # PySide6 uses exec(), PySide2 uses exec_()
     try:
