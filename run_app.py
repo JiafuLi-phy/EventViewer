@@ -49,21 +49,30 @@ def main():
     # ── auto-detect sample bundle ──
     npz_path = args.npz or args.npz_opt or args.bundle_opt
     if not npz_path:
-        # Look for *.npz next to the executable / in cwd / in PyInstaller bundle
-        candidates = []
-        search_dirs = [_APP_DIR, os.getcwd()]
-        if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
-            search_dirs.insert(0, sys._MEIPASS)
-        for d in search_dirs:
-            try:
-                for f in sorted(os.listdir(d)):
-                    if f.endswith(".npz"):
-                        candidates.append(os.path.join(d, f))
-                        break
-            except OSError:
-                pass
-        if candidates:
-            npz_path = candidates[0]
+        # Check bundled NPZ first (PyInstaller .app)
+        for candidate in [
+            os.path.join(getattr(sys, "_MEIPASS", ""), "events_run_023756.npz"),
+            os.path.join(_APP_DIR, "events_run_023756.npz"),
+            os.path.join(os.getcwd(), "events_run_023756.npz"),
+        ]:
+            if os.path.isfile(candidate):
+                npz_path = candidate
+                break
+        # Also scan for any .npz in search dirs
+        if not npz_path:
+            search_dirs = [_APP_DIR, os.getcwd()]
+            if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+                search_dirs.insert(0, sys._MEIPASS)
+            for d in search_dirs:
+                try:
+                    for f in sorted(os.listdir(d)):
+                        if f.endswith(".npz"):
+                            npz_path = os.path.join(d, f)
+                            break
+                except OSError:
+                    pass
+                if npz_path:
+                    break
 
     if npz_path:
         if os.path.isfile(npz_path):

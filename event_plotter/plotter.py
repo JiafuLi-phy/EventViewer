@@ -1196,26 +1196,48 @@ def plot_peak_zoom(
     _mark_peak_span(ax_full, event, "s2", t0_ev, style.GREEN_POSITIVE)
     ax_full.set_title("Full event  (selected peak highlighted)", fontsize=_rsize + 1, fontweight="bold")
 
-    # ── PMT hit patterns for this peak ──
+    # ── PMT hit patterns ──
+    # Individual peaks from peak_basics don't have area_per_channel.
+    # Use EAC data as best approximation for S1/S2 peaks; for unknowns
+    # show the combined event pattern.
+    area = np.zeros(len(to_pe))
+    pattern_label = "Area [PE]"
+    pmt_title_suffix = ""
+
     if has_per_channel(np.array([peak])):
         area = peak["area_per_channel"]
+        pmt_title_suffix = f" (peak {highlight_idx})"
     elif event_area_per_channel is not None:
         eac = event_area_per_channel
         if ptype == 1 and "s1_area_per_channel" in eac.dtype.names:
             area = eac["s1_area_per_channel"]
+            pmt_title_suffix = " (main S1)"
         elif ptype == 2 and "s2_area_per_channel" in eac.dtype.names:
             area = eac["s2_area_per_channel"]
+            pmt_title_suffix = " (main S2)"
         else:
-            area = np.zeros(len(to_pe))
-    else:
-        area = np.zeros(len(to_pe))
+            # Unknown peak: show combined event pattern
+            for key in ("s1_area_per_channel", "s2_area_per_channel",
+                         "alt_s1_area_per_channel", "alt_s2_area_per_channel"):
+                if key in eac.dtype.names:
+                    area = area + eac[key]
+            pmt_title_suffix = " (event total)"
 
-    for ax_pmt, arr_name in [(ax_pmt_top, "top"), (ax_pmt_bot, "bottom")]:
-        plot_pmt_hit_pattern(area, pmt_positions, to_pe,
-                             array_name=arr_name, ax=ax_pmt, cmap="plasma",
-                             vmin=0, marker_size=50,
-                             show_colorbar=True, label="Area [PE]")
-        ax_pmt.set_title(f"{label} {arr_name.capitalize()} PMT")
+    if np.all(area == 0):
+        # Truly no data: show a text note instead of empty plot
+        for ax_pmt, arr_name in [(ax_pmt_top, "top"), (ax_pmt_bot, "bottom")]:
+            ax_pmt.text(0.5, 0.5, f"No per-channel\ndata for {label}",
+                       transform=ax_pmt.transAxes, ha="center", va="center",
+                       color="grey", fontsize=_rsize)
+            ax_pmt.set_title(f"{label} {arr_name.capitalize()} PMT")
+            ax_pmt.set_aspect("equal")
+    else:
+        for ax_pmt, arr_name in [(ax_pmt_top, "top"), (ax_pmt_bot, "bottom")]:
+            plot_pmt_hit_pattern(area, pmt_positions, to_pe,
+                                 array_name=arr_name, ax=ax_pmt, cmap="plasma",
+                                 vmin=0, marker_size=50,
+                                 show_colorbar=True, label=pattern_label)
+            ax_pmt.set_title(f"{label} {arr_name.capitalize()} PMT{pmt_title_suffix}")
 
     if title is None:
         title = _make_event_title(event, run_id=run_id)
