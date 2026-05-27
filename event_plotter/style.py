@@ -110,11 +110,8 @@ def apply_style(
     plt.rcParams["ytick.minor.size"] = 3
 
     # ── legend ──
-    plt.rcParams["legend.frameon"] = True
-    plt.rcParams["legend.framealpha"] = 0.9
-    plt.rcParams["legend.edgecolor"] = NEUTRAL_DARK
-    plt.rcParams["legend.fancybox"] = False
-    plt.rcParams["legend.fontsize"] = font_size + 6
+    plt.rcParams["legend.frameon"] = False
+    plt.rcParams["legend.fontsize"] = font_size + 14
     plt.rcParams["legend.handlelength"] = 2.0
     plt.rcParams["legend.handletextpad"] = 0.8
     plt.rcParams["legend.borderpad"] = 0.6
