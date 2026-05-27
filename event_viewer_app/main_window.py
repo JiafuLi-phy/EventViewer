@@ -133,14 +133,14 @@ class PeakListWidget(QWidget):
                 for col in range(len(self.COLUMNS)):
                     self._table.item(row, col).setBackground(Qt.GlobalColor(0xE8F8E8))
 
-            # Bold + star for main S1/S2
+            # Bold rename for main S1/S2
             if orig_i == main_s1_idx:
                 type_item = self._table.item(row, 0)
-                type_item.setText(type_item.text() + " *")
+                type_item.setText("Main S1")
                 font = type_item.font(); font.setBold(True); type_item.setFont(font)
             elif orig_i == main_s2_idx:
                 type_item = self._table.item(row, 0)
-                type_item.setText(type_item.text() + " *")
+                type_item.setText("Main S2")
                 font = type_item.font(); font.setBold(True); type_item.setFont(font)
 
             for col in range(len(self.COLUMNS)):
