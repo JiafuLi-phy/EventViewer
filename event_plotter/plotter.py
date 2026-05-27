@@ -868,7 +868,7 @@ def plot_event_full(
     # ── suptitle ──
     if title is None:
         title = _make_event_title(event, run_id=run_id)
-    fig.suptitle(title, fontsize=_rsize + 1, fontweight="bold", y=0.99)
+    fig.suptitle(title, fontsize=_rsize + 1, fontweight="bold", y=0.97)
 
     return fig
 
@@ -1252,7 +1252,7 @@ def plot_peak_zoom(
 
     if title is None:
         title = _make_event_title(event, run_id=run_id)
-    fig.suptitle(title, fontsize=_rsize + 1, fontweight="bold", y=0.99)
+    fig.suptitle(title, fontsize=_rsize + 1, fontweight="bold", y=0.97)
 
     return fig
 
