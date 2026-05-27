@@ -558,7 +558,7 @@ def plot_pmt_hit_pattern(
     ax.set_title(array_name.capitalize(), fontsize=style.plt.rcParams["font.size"])
 
     if show_colorbar:
-        cbar = plt.colorbar(sc, ax=ax, fraction=0.046, pad=0.04)
+        cbar = ax.figure.colorbar(sc, ax=ax, fraction=0.046, pad=0.04)
         cbar.set_label(label or "Area [PE]", fontsize=style.plt.rcParams["font.size"] - 1)
 
     return ax

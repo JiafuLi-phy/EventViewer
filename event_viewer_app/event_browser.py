@@ -170,6 +170,10 @@ class EventBrowser(QWidget):
 
         self._count_label.setText(f"{len(filtered)} events shown")
 
+        # Auto-select first event
+        if self._list.count() > 0:
+            self._list.setCurrentRow(0)
+
     def _apply_filters(self):
         self._populate_list()
 
