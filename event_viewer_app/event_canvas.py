@@ -101,15 +101,15 @@ class EventCanvas(QWidget):
             self.peak_clicked.emit(best['index'])
 
     def _on_scroll(self, event):
-        if event.inaxes is None:
-            return
-        ax = event.inaxes
         s = 0.8 if event.button == 'up' else 1.25
-        cx, cy = event.xdata, event.ydata
-        if cx is None or cy is None:
-            return
-        xmin, xmax = ax.get_xlim()
-        ymin, ymax = ax.get_ylim()
-        ax.set_xlim(cx - (cx - xmin) * s, cx + (xmax - cx) * s)
-        ax.set_ylim(cy - (cy - ymin) * s, cy + (ymax - cy) * s)
+        # Zoom ALL axes together (whole-page zoom)
+        for ax in self._fig.axes:
+            if not ax.get_lines() and not ax.collections:
+                continue
+            xmin, xmax = ax.get_xlim()
+            ymin, ymax = ax.get_ylim()
+            cx = (xmin + xmax) / 2
+            cy = (ymin + ymax) / 2
+            ax.set_xlim(cx - (cx - xmin) * s, cx + (xmax - cx) * s)
+            ax.set_ylim(cy - (cy - ymin) * s, cy + (ymax - cy) * s)
         self._canvas.draw_idle()
