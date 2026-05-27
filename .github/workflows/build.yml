@@ -90,12 +90,28 @@ jobs:
 
       - name: Build
         run: |
-          pyinstaller EventViewer.spec --distpath dist --workpath /tmp/pyinstaller_mac
+          pyinstaller \
+            --onedir --windowed \
+            --name "XENONnT-EventViewer" \
+            --add-data "scripts/output/events_run_023756.npz:." \
+            --hidden-import PySide6.QtCore \
+            --hidden-import PySide6.QtGui \
+            --hidden-import PySide6.QtWidgets \
+            --hidden-import matplotlib.backends.backend_qtagg \
+            --collect-submodules numpy \
+            --collect-data matplotlib \
+            --exclude-module tkinter \
+            --exclude-module PyQt5 \
+            --exclude-module scipy \
+            --exclude-module pandas \
+            --distpath dist \
+            --workpath /tmp/pyinstaller_mac \
+            run_app.py
 
       - name: Package release (DMG)
         run: |
           mkdir -p pkg/XENONnT-EventViewer-macos-arm64
-          cp dist/XENONnT-EventViewer pkg/XENONnT-EventViewer-macos-arm64/
+          cp -R dist/XENONnT-EventViewer.app pkg/XENONnT-EventViewer-macos-arm64/
           cp scripts/output/events_run_023756.npz pkg/XENONnT-EventViewer-macos-arm64/ 2>/dev/null || true
           cp README.md pkg/XENONnT-EventViewer-macos-arm64/ 2>/dev/null || true
           hdiutil create -volname "XENONnT-EventViewer" \
@@ -124,12 +140,28 @@ jobs:
 
       - name: Build
         run: |
-          pyinstaller EventViewer.spec --distpath dist --workpath /tmp/pyinstaller_mac_x64
+          pyinstaller \
+            --onedir --windowed \
+            --name "XENONnT-EventViewer" \
+            --add-data "scripts/output/events_run_023756.npz:." \
+            --hidden-import PySide6.QtCore \
+            --hidden-import PySide6.QtGui \
+            --hidden-import PySide6.QtWidgets \
+            --hidden-import matplotlib.backends.backend_qtagg \
+            --collect-submodules numpy \
+            --collect-data matplotlib \
+            --exclude-module tkinter \
+            --exclude-module PyQt5 \
+            --exclude-module scipy \
+            --exclude-module pandas \
+            --distpath dist \
+            --workpath /tmp/pyinstaller_mac \
+            run_app.py
 
       - name: Package release (DMG)
         run: |
           mkdir -p pkg/XENONnT-EventViewer-macos-x64
-          cp dist/XENONnT-EventViewer pkg/XENONnT-EventViewer-macos-x64/
+          cp -R dist/XENONnT-EventViewer.app pkg/XENONnT-EventViewer-macos-x64/
           cp scripts/output/events_run_023756.npz pkg/XENONnT-EventViewer-macos-x64/ 2>/dev/null || true
           cp README.md pkg/XENONnT-EventViewer-macos-x64/ 2>/dev/null || true
           hdiutil create -volname "XENONnT-EventViewer" \

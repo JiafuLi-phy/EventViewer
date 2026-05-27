@@ -38,14 +38,27 @@ case "$PLATFORM" in
 
     mac)
         echo "=== Building macOS app (ARM64 native) ==="
-        pyinstaller EventViewer.spec \
+        pyinstaller \
+            --onedir --windowed \
+            --name "XENONnT-EventViewer" \
+            --add-data "scripts/output/events_run_023756.npz:." \
+            --hidden-import PySide6.QtCore \
+            --hidden-import PySide6.QtGui \
+            --hidden-import PySide6.QtWidgets \
+            --hidden-import matplotlib.backends.backend_qtagg \
+            --collect-submodules numpy \
+            --collect-data matplotlib \
+            --exclude-module tkinter \
+            --exclude-module PyQt5 \
+            --exclude-module scipy \
+            --exclude-module pandas \
             --distpath dist \
             --workpath /tmp/pyinstaller_mac \
-            --clean
+            run_app.py
         echo ""
         echo "=== Creating DMG ==="
         mkdir -p pkg/XENONnT-EventViewer-macos
-        cp dist/XENONnT-EventViewer pkg/XENONnT-EventViewer-macos/
+        cp -R dist/XENONnT-EventViewer.app pkg/XENONnT-EventViewer-macos/
         cp scripts/output/events_run_023756.npz pkg/XENONnT-EventViewer-macos/ 2>/dev/null || true
         cp README.md pkg/XENONnT-EventViewer-macos/ 2>/dev/null || true
         hdiutil create -volname "XENONnT-EventViewer" \
