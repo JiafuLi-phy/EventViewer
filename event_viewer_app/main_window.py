@@ -31,11 +31,21 @@ class PeakListWidget(QWidget):
     COLUMNS = ["Type", "Area [PE]", "Width [ns]", "Rise [ns]", "Time [ns]"]
 
     class NumericItem(QTableWidgetItem):
-        def __lt__(self, other):
+        @staticmethod
+        def _sort_value(text):
             try:
-                return float(self.text()) < float(other.text())
+                if any(ch in text for ch in ".eE"):
+                    return float(text)
+                return int(text)
             except Exception:
-                return super().__lt__(other)
+                return text
+
+        def __lt__(self, other):
+            left = self._sort_value(self.text())
+            right = self._sort_value(other.text())
+            if isinstance(left, (int, float)) and isinstance(right, (int, float)):
+                return left < right
+            return super().__lt__(other)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -95,7 +105,12 @@ class PeakListWidget(QWidget):
             if "range_90p_area" in p.dtype.names:
                 width = float(p["range_90p_area"])
             else:
-                width = (int(p["endtime"]) - int(p["time"])) if "endtime" in p.dtype.names else 0
+                if "endtime" in p.dtype.names:
+                    width = int(p["endtime"]) - int(p["time"])
+                elif "length" in p.dtype.names and "dt" in p.dtype.names:
+                    width = int(p["length"]) * int(p["dt"])
+                else:
+                    width = 0
             item = self.NumericItem(f"{width:.0f}")
             self._table.setItem(row, 2, item)
 
@@ -169,7 +184,7 @@ class MainWindow(QMainWindow):
         self._eac_for_event = None       # event_area_per_channel for current event
         self._raw_records_for_event = None
 
-        style.apply_style(font_size=9)
+        style.apply_style(font_size=11, axes_linewidth=2.0)
 
         self.setWindowTitle("XENONnT Event Viewer")
         self.setMinimumSize(1200, 750)
@@ -241,13 +256,13 @@ class MainWindow(QMainWindow):
         left_layout.setSpacing(4)
 
         self._browser = EventBrowser(self._dm)
-        self._browser.setMaximumWidth(320)
+        self._browser.setMaximumWidth(500)
         self._browser.setMinimumWidth(220)
         self._browser.event_selected.connect(self._on_event_selected)
         self._browser.data_source_changed.connect(self._on_data_source_changed)
 
         self._peak_list = PeakListWidget()
-        self._peak_list.setMaximumWidth(320)
+        self._peak_list.setMaximumWidth(500)
         self._peak_list.setMinimumWidth(220)
         self._peak_list._table.itemSelectionChanged.connect(self._on_peak_list_selection)
 
@@ -262,9 +277,9 @@ class MainWindow(QMainWindow):
         self._canvas.peak_clicked.connect(self._on_peak_clicked)
         splitter.addWidget(self._canvas)
 
-        splitter.setSizes([280, 1320])
-        splitter.setStretchFactor(0, 0)
-        splitter.setStretchFactor(1, 1)
+        splitter.setSizes([300, 1300])
+        splitter.setStretchFactor(0, 1)
+        splitter.setStretchFactor(1, 3)
 
         self.setCentralWidget(splitter)
 
@@ -324,7 +339,13 @@ class MainWindow(QMainWindow):
         try:
             n = self._dm.open_strax_run(run_id.strip(), peak_data_type="peaks")
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to load run {run_id}:\n{e}")
+            QMessageBox.critical(
+                self, "Error",
+                "Failed to load this strax run.\n\n"
+                "Direct strax loading needs strax/cutax plus a mounted XENONnT data path "
+                "such as /dali/lgrandi/xenonnt/processed or /project/lgrandi/xenonnt/processed.\n\n"
+                f"Run: {run_id}\nDetails: {e}"
+            )
             return
         self._browser._on_data_loaded(n, f"Strax run: {run_id}")
         self._status_label.setText(f"Loaded {n} events from run {run_id}")
@@ -426,7 +447,9 @@ class MainWindow(QMainWindow):
                 s1_info = f"  S1={event['s1_area']:.0f} PE"
             if event is not None and "s2_area" in event.dtype.names:
                 s2_info = f"  S2={event['s2_area']:.0f} PE"
-            source_info = "  |  real waveforms" if raw_records is not None and len(raw_records) else "  |  model waveforms"
+            has_peak_waveforms = peaks is not None and plotter.has_waveform(peaks)
+            has_raw_records = raw_records is not None and len(raw_records)
+            source_info = "  |  real waveforms" if has_peak_waveforms or has_raw_records else "  |  model waveforms"
             self._status_label.setText(
                 f"Event {self._current_event}  |  {n_peaks} peaks{s1_info}{s2_info}{source_info}"
             )

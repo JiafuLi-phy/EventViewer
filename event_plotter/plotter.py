@@ -23,12 +23,20 @@ from . import style
 
 def has_waveform(peaks: np.ndarray) -> bool:
     """Return True if *peaks* has a ``data`` field suitable for waveform drawing."""
-    return "data" in peaks.dtype.names
+    names = getattr(getattr(peaks, "dtype", None), "names", None) or ()
+    return "data" in names
 
 
 def has_per_channel(peaks: np.ndarray) -> bool:
     """Return True if *peaks* has ``area_per_channel``."""
-    return "area_per_channel" in peaks.dtype.names
+    names = getattr(getattr(peaks, "dtype", None), "names", None) or ()
+    return "area_per_channel" in names
+
+
+def has_top_waveform(peaks: np.ndarray) -> bool:
+    """Return True if *peaks* has top-array waveform samples."""
+    names = getattr(getattr(peaks, "dtype", None), "names", None) or ()
+    return "data_top" in names
 
 
 # ── low-level waveform helpers ─────────────────────────────────
@@ -57,6 +65,47 @@ def time_and_samples(
     x = (int(peak["time"]) - t0 + np.arange(n + 1) * peak["dt"]) / 1e9
     y = peak["data"][:n] / peak["dt"]
     return x, np.concatenate([[y[0]], y])
+
+
+def time_and_component_samples(
+    peak: np.ndarray,
+    component: str = "total",
+    t0: Optional[int] = None,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Return step x/y arrays for total, top, or bottom peak waveform."""
+    n = int(peak["length"])
+    dt = int(peak["dt"])
+    if t0 is None:
+        t0 = int(peak["time"])
+    total = peak["data"][:n].astype(float)
+    if component == "top" and "data_top" in peak.dtype.names:
+        data = peak["data_top"][:n].astype(float)
+    elif component == "bottom" and "data_top" in peak.dtype.names:
+        data = total - peak["data_top"][:n].astype(float)
+    else:
+        data = total
+    x = (int(peak["time"]) - t0 + np.arange(n + 1) * dt) / 1e9
+    y = data / dt
+    return x, np.concatenate([[y[0]], y])
+
+
+def plot_peak_component_waveform(
+    peak: np.ndarray,
+    component: str,
+    t0: int,
+    ax: plt.Axes,
+    color: str,
+    alpha_fill: float = 0.18,
+    linewidth: float = 0.6,
+    label: Optional[str] = None,
+):
+    """Draw one component from real peak waveform samples."""
+    x, y = time_and_component_samples(peak, component=component, t0=t0)
+    line = ax.plot(x, y, drawstyle="steps-pre", color=color,
+                   linewidth=linewidth, label=label)
+    fill = ax.fill_between(x, 0, y, step="pre", color=color,
+                           alpha=alpha_fill, linewidth=0)
+    return [*line, fill]
 
 
 def _step_patch_coords(
@@ -147,7 +196,13 @@ def _model_pulse_waveform(peak: np.ndarray, n_samples: int = 200) -> Tuple[np.nd
     """
     area = float(peak["area"])
     dt = int(peak["dt"]) if "dt" in peak.dtype.names else 10
-    duration = int(peak["endtime"]) - int(peak["time"])
+    if "endtime" in peak.dtype.names:
+        duration = int(peak["endtime"]) - int(peak["time"])
+    elif "length" in peak.dtype.names:
+        duration = int(peak["length"]) * dt
+    else:
+        duration = n_samples * dt
+    duration = max(duration, dt)
 
     # Rise time: time from 10% to 50% of cumulative integral
     rise = float(peak["rise_time"]) if "rise_time" in peak.dtype.names else 10.0
@@ -692,7 +747,7 @@ def plot_event_full(
             highlight_idx=highlight_peak_idx,
         )
     ax_wf.set_title("Event waveform: top + bottom + total",
-                    fontsize=_rsize + 1, fontweight="bold")
+                    fontsize=_rsize + 3, fontweight="bold")
 
     # ── Row 2: PMT patterns (event total) ──
     if event_area_per_channel is not None:
@@ -707,13 +762,13 @@ def plot_event_full(
     for ax_pmt, arr_name in [(ax_pmt_top, "top"), (ax_pmt_bot, "bottom")]:
         plot_pmt_hit_pattern(ev_area, pmt_positions, to_pe,
                              array_name=arr_name, ax=ax_pmt, cmap="plasma",
-                             vmin=0, marker_size=60,
+                             vmin=0, marker_size=120,
                              show_colorbar=True, label="Area [PE]")
-        ax_pmt.set_title(f"Event {arr_name.capitalize()} PMT")
+        ax_pmt.set_title(f"Event {arr_name.capitalize()} PMT", fontweight="bold")
 
     if title is None:
         title = _make_event_title(event, run_id=run_id)
-    fig.suptitle(title, fontsize=_rsize + 1, fontweight="bold", y=0.97)
+    fig.suptitle(title, fontsize=_rsize + 4, fontweight="bold", y=0.97)
 
     return fig
 
@@ -735,6 +790,51 @@ def _draw_3layer_waveform(
 
     plotted_types = set()
     ax._peak_regions = []
+
+    if has_waveform(peaks):
+        legend_artists = {"top": [], "bottom": [], "total": []}
+        for i, p in enumerate(peaks):
+            orig_i = original_idx[i]
+            ptype = int(p["type"])
+            total_color = style.PEAK_COLORS.get(ptype, style.NEUTRAL_MID)
+            top_lbl = "Top" if "top" not in plotted_types else None
+            bot_lbl = "Bottom" if "bottom" not in plotted_types else None
+            total_lbl = "Total" if "total" not in plotted_types else None
+            plotted_types.update({"top", "bottom", "total"})
+            lw_scale = 3 if highlight_idx is not None and orig_i == highlight_idx else 1
+
+            if has_top_waveform(np.array([p])):
+                legend_artists["top"].extend(plot_peak_component_waveform(
+                    p, "top", t0, ax, style.VIOLET,
+                    alpha_fill=0.16, linewidth=0.25 * lw_scale, label=top_lbl,
+                ))
+                legend_artists["bottom"].extend(plot_peak_component_waveform(
+                    p, "bottom", t0, ax, "#E67E22",
+                    alpha_fill=0.16, linewidth=0.25 * lw_scale, label=bot_lbl,
+                ))
+            legend_artists["total"].extend(plot_peak_component_waveform(
+                p, "total", t0, ax, total_color,
+                alpha_fill=0.12, linewidth=0.35 * lw_scale, label=total_lbl,
+            ))
+
+            x_start = (int(p["time"]) - t0) / 1e9
+            end_ns = int(p["endtime"]) if "endtime" in p.dtype.names else int(p["time"]) + int(p["length"]) * int(p["dt"])
+            x_end = (end_ns - t0) / 1e9
+            ax._peak_regions.append({
+                "x_start": x_start, "x_end": x_end,
+                "center_x": (x_start + x_end) / 2,
+                "index": int(orig_i), "type": ptype, "area": float(p["area"]),
+            })
+
+        ax.axhline(0, color="k", alpha=0.15, linewidth=0.4)
+        ax.set_ylabel("Real peak waveform [PE/ns]")
+        style.tighten_ylim(ax)
+        leg = ax.legend(loc="upper right", fontsize=style.plt.rcParams["font.size"] - 1)
+        for txt in leg.get_texts():
+            txt.set_picker(True)
+        ax._legend_artists = {k: v for k, v in legend_artists.items() if v}
+        ax._legend_state = {k: True for k in ax._legend_artists}
+        return
 
     if raw_records is not None and len(raw_records) and pmt_positions is not None:
         from . import io as _io
@@ -1140,7 +1240,28 @@ def plot_peak_zoom(
     bot_color = "#E67E22"  # orange
     sum_color = color
 
-    if raw_records is not None and len(raw_records) and pmt_positions is not None:
+    if has_waveform(np.array([peak])):
+        artists_top = []
+        artists_bot = []
+        if has_top_waveform(np.array([peak])):
+            artists_top = plot_peak_component_waveform(
+                peak, "top", t0, ax_wf, top_color,
+                alpha_fill=0.25, linewidth=0.8, label=f"Top PMT ({area_top:.0f} PE)",
+            )
+            artists_bot = plot_peak_component_waveform(
+                peak, "bottom", t0, ax_wf, bot_color,
+                alpha_fill=0.25, linewidth=0.8, label=f"Bottom PMT ({area_bot:.0f} PE)",
+            )
+        artists_sum = plot_peak_component_waveform(
+            peak, "total", t0, ax_wf, sum_color,
+            alpha_fill=0.18, linewidth=1.5, label=f"Total ({area_total:.0f} PE)",
+        )
+        if not artists_top:
+            artists_top = artists_sum
+        if not artists_bot:
+            artists_bot = artists_sum
+        ax_wf.set_ylabel("Real peak waveform [PE/ns]")
+    elif raw_records is not None and len(raw_records) and pmt_positions is not None:
         from . import io as _io
         rec_mask = (raw_records["time"] >= t0) & (raw_records["time"] <= t_end + margin)
         recs = raw_records[rec_mask]
@@ -1235,13 +1356,13 @@ def plot_peak_zoom(
         else:
             plot_pmt_hit_pattern(area_pmt, pmt_positions, to_pe,
                                  array_name=arr_name, ax=ax_pmt, cmap="plasma",
-                                 vmin=0, marker_size=60,
+                                 vmin=0, marker_size=120,
                                  show_colorbar=True, label="Area [PE]")
-        ax_pmt.set_title(f"{arr_name.capitalize()} PMT{pmt_suffix}")
+        ax_pmt.set_title(f"{arr_name.capitalize()} PMT{pmt_suffix}", fontweight="bold")
 
     if title is None:
         title = _make_event_title(event, run_id=run_id)
-    fig.suptitle(title, fontsize=_rsize + 1, fontweight="bold", y=0.97)
+    fig.suptitle(title, fontsize=_rsize + 4, fontweight="bold", y=0.97)
 
     return fig
 

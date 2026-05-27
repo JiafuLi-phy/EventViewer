@@ -111,13 +111,13 @@ def apply_style(
 
     # ── legend ──
     plt.rcParams["legend.frameon"] = True
-    plt.rcParams["legend.framealpha"] = 0.85
-    plt.rcParams["legend.edgecolor"] = NEUTRAL_LIGHT
+    plt.rcParams["legend.framealpha"] = 0.9
+    plt.rcParams["legend.edgecolor"] = NEUTRAL_DARK
     plt.rcParams["legend.fancybox"] = False
-    plt.rcParams["legend.fontsize"] = font_size
-    plt.rcParams["legend.handlelength"] = 1.6
-    plt.rcParams["legend.handletextpad"] = 0.6
-    plt.rcParams["legend.borderpad"] = 0.4
+    plt.rcParams["legend.fontsize"] = font_size + 3
+    plt.rcParams["legend.handlelength"] = 2.0
+    plt.rcParams["legend.handletextpad"] = 0.8
+    plt.rcParams["legend.borderpad"] = 0.6
 
     # ── LaTeX (optional) ──
     if use_tex:
@@ -190,10 +190,11 @@ def tighten_ylim(ax: plt.Axes, pad_frac: float = 0.05) -> None:
         return
     ymin, ymax = np.inf, -np.inf
     for line in lines:
-        yd = line.get_ydata()
+        yd = np.asarray(line.get_ydata(), dtype=float)
+        yd = yd[np.isfinite(yd)]
         if len(yd):
-            ymin = min(ymin, np.nanmin(yd))
-            ymax = max(ymax, np.nanmax(yd))
+            ymin = min(ymin, yd.min())
+            ymax = max(ymax, yd.max())
     if not np.isfinite(ymin) or not np.isfinite(ymax):
         return
     pad = (ymax - ymin) * pad_frac + 1e-12
