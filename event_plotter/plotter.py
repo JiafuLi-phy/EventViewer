@@ -606,7 +606,7 @@ def plot_event_full(
     event_area_per_channel: Optional[np.ndarray] = None,
     s1_hp_kwargs: Optional[dict] = None,
     s2_hp_kwargs: Optional[dict] = None,
-    figsize: Tuple[float, float] = (18, 14),
+    figsize: Tuple[float, float] = (14, 12),
     show_largest: int = 200,
     title: Optional[str] = None,
     fig: Optional[plt.Figure] = None,
@@ -614,21 +614,16 @@ def plot_event_full(
     run_id: Optional[str] = None,
     highlight_peak_idx: Optional[int] = None,
 ) -> plt.Figure:
-    """Main multi-panel event display.
+    """Event display — vertical pages: waveform then PMT patterns.
 
     Layout::
 
-        ┌──────────┬──────────┬──────────┬──────────┐
-        │  S1 zoom │  S2 zoom │ S1 top   │ S1 bot   │
-        │          │          │ PMT      │ PMT      │
-        ├──────────┼──────────┼──────────┼──────────┤
-        │  S2 top  │  S2 bot  │ Evt top  │ Evt bot  │
-        │  PMT     │  PMT     │ PMT      │ PMT      │
-        ├──────────┴──────────┴──────────┴──────────┤
-        │     full event waveform (linear scale)    │
-        ├───────────────────────────────────────────┤
-        │     full event waveform (log scale)       │
-        └───────────────────────────────────────────┘
+        ┌───────────────────────────────────────┐
+        │   Event waveform                      │
+        │   (top + bottom = total, 3 layers)    │
+        ├──────────────────┬────────────────────┤
+        │   PMT Top        │   PMT Bottom       │
+        └──────────────────┴────────────────────┘
 
     Parameters
     ----------
@@ -651,11 +646,10 @@ def plot_event_full(
     if s2_hp_kwargs is None:
         s2_hp_kwargs = {}
 
-    # default hit-pattern options — vmax computed per area array below
-    hp_defaults = dict(log_scale=False, marker_size=25, show_colorbar=True, label="Area [PE]")
-    for d in (s1_hp_kwargs, s2_hp_kwargs):
-        for k, v in hp_defaults.items():
-            d.setdefault(k, v)
+    if s1_hp_kwargs is None:
+        s1_hp_kwargs = {}
+    if s2_hp_kwargs is None:
+        s2_hp_kwargs = {}
 
     if fig is None:
         fig = plt.figure(figsize=figsize, facecolor="white")
@@ -663,73 +657,30 @@ def plot_event_full(
         fig.set_size_inches(figsize)
         fig.clear()
 
-    # ── grid spec: 4 rows ──
-    # row 0: S1 wf, S2 wf, S1 top, S1 bot
-    # row 1: S2 top, S2 bot, event top, event bot
-    # row 2: full event waveform (linear)
-    # row 3: full event waveform (log)
-    gs_main = gridspec.GridSpec(
-        4, 2, figure=fig,
-        height_ratios=[1.0, 1.0, 1.25, 1.25],
-        hspace=0.85, wspace=0.40,
-    )
-
-    # row 0 (top): S1 zoom wf, S2 zoom wf, S1 top PMT, S1 bottom PMT
-    gs_top = gridspec.GridSpecFromSubplotSpec(
-        1, 4, subplot_spec=gs_main[0, :],
-        wspace=0.45,
-    )
-    ax_s1 = fig.add_subplot(gs_top[0])
-    ax_s2 = fig.add_subplot(gs_top[1])
-    ax_s1_hp_t = fig.add_subplot(gs_top[2])
-    ax_s1_hp_b = fig.add_subplot(gs_top[3])
-
-    # row 1: S2 top PMT, S2 bottom PMT, event top PMT, event bottom PMT
-    gs_pmt = gridspec.GridSpecFromSubplotSpec(
-        1, 4, subplot_spec=gs_main[1, :],
-        wspace=0.45,
-    )
-    ax_s2_hp_t = fig.add_subplot(gs_pmt[0])
-    ax_s2_hp_b = fig.add_subplot(gs_pmt[1])
-    ax_ev_hp_t = fig.add_subplot(gs_pmt[2])
-    ax_ev_hp_b = fig.add_subplot(gs_pmt[3])
-
-    # row 2: full event waveform (linear) — full width
-    gs_ev = gridspec.GridSpecFromSubplotSpec(
-        1, 1, subplot_spec=gs_main[2, :],
-    )
-    ax_ev = fig.add_subplot(gs_ev[0])
-
-    # row 3: full event waveform (log) — full width
-    gs_ev_log = gridspec.GridSpecFromSubplotSpec(
-        1, 1, subplot_spec=gs_main[3, :],
-    )
-    ax_ev_log = fig.add_subplot(gs_ev_log[0])
-
-    # Store axes with peak data for interactive hit-testing
-    fig._peak_axes = [ax_ev, ax_ev_log]
-
     _rsize = style.plt.rcParams["font.size"]
 
-    # Compute areas for S1 and S2 from available data
-    if event_area_per_channel is not None and "s1_area_per_channel" in event_area_per_channel.dtype.names:
-        s1_area = event_area_per_channel["s1_area_per_channel"]
-    elif has_per_channel(peaks):
-        s1_area = peaks[peaks["type"] == 1]["area_per_channel"].sum(axis=0)
-    else:
-        s1_area = np.zeros(len(to_pe))
+    # ── Row 1: Event waveform (3-layer: top+bottom=total) ──
+    gs = gridspec.GridSpec(2, 2, figure=fig,
+                           height_ratios=[1.0, 1.0],
+                           hspace=0.5, wspace=0.4)
 
-    if event_area_per_channel is not None and "s2_area_per_channel" in event_area_per_channel.dtype.names:
-        s2_area = event_area_per_channel["s2_area_per_channel"]
-    elif has_per_channel(peaks):
-        s2_area = peaks[peaks["type"] == 2]["area_per_channel"].sum(axis=0)
-    else:
-        s2_area = np.zeros(len(to_pe))
+    ax_wf = fig.add_subplot(gs[0, :])  # full width waveform
+    ax_pmt_top = fig.add_subplot(gs[1, 0])
+    ax_pmt_bot = fig.add_subplot(gs[1, 1])
 
-    # Event total area
-    if has_per_channel(peaks):
-        ev_area = peaks["area_per_channel"].sum(axis=0)
-    elif event_area_per_channel is not None:
+    fig._peak_axes = [ax_wf]
+
+    t0_ev = int(event["time"])
+    if len(peaks):
+        # 3-layer waveform: top+bottom+total
+        frac_top = float(event.get("s1_area_fraction_top", 0.5))
+        # Build approximate top/bottom waveforms by scaling model pulses
+        _draw_3layer_waveform(peaks, t0_ev, ax_wf, show_largest)
+    ax_wf.set_title("Event waveform  (top + bottom = total)", fontsize=_rsize + 1, fontweight="bold")
+    ax_wf.set_xlabel("Time [s]")
+
+    # ── Row 2: PMT patterns (event total) ──
+    if event_area_per_channel is not None:
         ev_area = np.zeros(len(to_pe))
         for key in ("s1_area_per_channel", "s2_area_per_channel",
                      "alt_s1_area_per_channel", "alt_s2_area_per_channel"):
@@ -738,141 +689,79 @@ def plot_event_full(
     else:
         ev_area = np.zeros(len(to_pe))
 
-    # Per-type, per-array vmax: 2× the brightest PMT in that array
-    _mask_top = pmt_positions["array"] == "top"
-    _mask_bot = pmt_positions["array"] == "bottom"
+    for ax_pmt, arr_name in [(ax_pmt_top, "top"), (ax_pmt_bot, "bottom")]:
+        plot_pmt_hit_pattern(ev_area, pmt_positions, to_pe,
+                             array_name=arr_name, ax=ax_pmt, cmap="plasma",
+                             vmin=0, marker_size=60,
+                             show_colorbar=True, label="Area [PE]")
+        ax_pmt.set_title(f"Event {arr_name.capitalize()} PMT")
 
-    def _vmax(area, mask):
-        vals = area[mask]
-        return 2.0 * float(np.max(vals)) if np.max(vals) > 0 else 1.0
-
-    _s1_vmax_t = _vmax(s1_area, _mask_top)
-    _s1_vmax_b = _vmax(s1_area, _mask_bot)
-    _s2_vmax_t = _vmax(s2_area, _mask_top)
-    _s2_vmax_b = _vmax(s2_area, _mask_bot)
-    _ev_vmax_t = _vmax(ev_area, _mask_top)
-    _ev_vmax_b = _vmax(ev_area, _mask_bot)
-
-    # ── (a) S1 waveform — tight zoom ──
-    s1_time = int(event["s1_time"])
-    s1_endtime = int(event["s1_endtime"])
-    if len(peaks):
-        t_low_s1 = s1_time - 200
-        t_high_s1 = s1_endtime + 800
-        s1_mask = (peaks["time"] >= t_low_s1) & (peaks["time"] <= t_high_s1)
-        s1_near = peaks[s1_mask]
-        t0_s1 = t_low_s1 if len(s1_near) else s1_time
-        plot_peaks(
-            s1_near, t0=t0_s1, ax=ax_s1,
-            show_largest=10, alpha_fill=0.4, linewidth=1.0, legend=False,
-            raw_records=raw_records, to_pe=to_pe,
-        )
-        _mark_peak_span(ax_s1, event, "s1", t0_s1, style.BLUE_MAIN)
-    ax_s1.set_title("Main S1", fontsize=_rsize + 1, fontweight="bold")
-    _clean_zoom_ax(ax_s1)
-
-    # ── (b) S2 waveform — tight zoom ──
-    s2_time = int(event["s2_time"])
-    s2_endtime = int(event["s2_endtime"])
-    if len(peaks):
-        t_low_s2 = s2_time - 500
-        t_high_s2 = s2_endtime + 3000
-        s2_mask = (peaks["time"] >= t_low_s2) & (peaks["time"] <= t_high_s2)
-        s2_near = peaks[s2_mask]
-        t0_s2 = t_low_s2 if len(s2_near) else s2_time
-        plot_peaks(
-            s2_near, t0=t0_s2, ax=ax_s2,
-            show_largest=10, alpha_fill=0.4, linewidth=1.0, legend=False,
-            raw_records=raw_records, to_pe=to_pe,
-        )
-        _mark_peak_span(ax_s2, event, "s2", t0_s2, style.GREEN_POSITIVE)
-    ax_s2.set_title("Main S2", fontsize=_rsize + 1, fontweight="bold")
-    _clean_zoom_ax(ax_s2)
-
-    # Annotate S1 / S2 area, width, amplitude
-    _annotate_peak_info(ax_s1, event, "s1")
-    _annotate_peak_info(ax_s2, event, "s2")
-
-    # ── S1 Top PMT ──
-    plot_pmt_hit_pattern(
-        s1_area, pmt_positions, to_pe,
-        array_name="top", ax=ax_s1_hp_t, cmap="plasma",
-        vmin=0, vmax=_s1_vmax_t, **s1_hp_kwargs,
-    )
-    ax_s1_hp_t.set_title("S1 Top PMT", fontsize=_rsize + 1, fontweight="bold")
-
-    # ── S1 Bottom PMT ──
-    plot_pmt_hit_pattern(
-        s1_area, pmt_positions, to_pe,
-        array_name="bottom", ax=ax_s1_hp_b, cmap="plasma",
-        vmin=0, vmax=_s1_vmax_b, **s1_hp_kwargs,
-    )
-    ax_s1_hp_b.set_title("S1 Bottom PMT", fontsize=_rsize + 1, fontweight="bold")
-
-    # ── S2 Top PMT ──
-    plot_pmt_hit_pattern(
-        s2_area, pmt_positions, to_pe,
-        array_name="top", ax=ax_s2_hp_t, cmap="plasma",
-        vmin=0, vmax=_s2_vmax_t, **s2_hp_kwargs,
-    )
-    ax_s2_hp_t.set_title("S2 Top PMT", fontsize=_rsize + 1, fontweight="bold")
-
-    # ── S2 Bottom PMT ──
-    plot_pmt_hit_pattern(
-        s2_area, pmt_positions, to_pe,
-        array_name="bottom", ax=ax_s2_hp_b, cmap="plasma",
-        vmin=0, vmax=_s2_vmax_b, **s2_hp_kwargs,
-    )
-    ax_s2_hp_b.set_title("S2 Bottom PMT", fontsize=_rsize + 1, fontweight="bold")
-
-    # ── Event Top PMT ──
-    plot_pmt_hit_pattern(
-        ev_area, pmt_positions, to_pe,
-        array_name="top", ax=ax_ev_hp_t, cmap="plasma",
-        vmin=0, vmax=_ev_vmax_t, **s1_hp_kwargs,
-    )
-    ax_ev_hp_t.set_title("Event Top PMT", fontsize=_rsize + 1, fontweight="bold")
-
-    # ── Event Bottom PMT ──
-    plot_pmt_hit_pattern(
-        ev_area, pmt_positions, to_pe,
-        array_name="bottom", ax=ax_ev_hp_b, cmap="plasma",
-        vmin=0, vmax=_ev_vmax_b, **s1_hp_kwargs,
-    )
-    ax_ev_hp_b.set_title("Event Bottom PMT", fontsize=_rsize + 1, fontweight="bold")
-
-    # ── full event waveform (linear) ──
-    t0_ev = int(event["time"])
-    if len(peaks):
-        plot_peaks(
-            peaks, t0=t0_ev, ax=ax_ev,
-            show_largest=show_largest, alpha_fill=0.15, linewidth=0.4,
-            raw_records=raw_records, to_pe=to_pe,
-            highlight_idx=highlight_peak_idx,
-        )
-    _mark_peak_span(ax_ev, event, "s1", t0_ev, style.BLUE_MAIN)
-    _mark_peak_span(ax_ev, event, "s2", t0_ev, style.GREEN_POSITIVE)
-    ax_ev.set_title("Full event  (linear scale)", fontsize=_rsize + 1, fontweight="bold")
-
-    # ── full event waveform (log scale) ──
-    if len(peaks):
-        plot_peaks(
-            peaks, t0=t0_ev, ax=ax_ev_log,
-            show_largest=show_largest, alpha_fill=0.15, linewidth=0.4,
-            raw_records=raw_records, to_pe=to_pe,
-            highlight_idx=highlight_peak_idx,
-        )
-        ax_ev_log.set_yscale("symlog", linthresh=10, linscale=0.5)
-    _mark_peak_span(ax_ev_log, event, "s1", t0_ev, style.BLUE_MAIN)
-    _mark_peak_span(ax_ev_log, event, "s2", t0_ev, style.GREEN_POSITIVE)
-    ax_ev_log.set_title("Full event  (log scale)", fontsize=_rsize + 1, fontweight="bold")
-
-    # ── suptitle ──
     if title is None:
         title = _make_event_title(event, run_id=run_id)
     fig.suptitle(title, fontsize=_rsize + 1, fontweight="bold", y=0.97)
 
     return fig
+
+
+def _draw_3layer_waveform(peaks, t0, ax, show_largest=200):
+    """Draw all peaks as model pulses. Each peak shown with top/bottom/total layers."""
+    peaks = peaks[np.argsort(peaks["area"])[::-1][:show_largest]]
+    peaks = peaks[np.argsort(peaks["time"])]
+
+    plotted_types = set()
+    ax._peak_regions = []
+    for i, p in enumerate(peaks):
+        ptype = int(p["type"])
+        c = style.PEAK_COLORS.get(ptype, style.NEUTRAL_MID)
+        lbl = style.PEAK_LABELS.get(ptype, f"type={ptype}")
+        if ptype in plotted_types:
+            lbl = None
+        plotted_types.add(ptype)
+
+        frac_top = float(p["area_fraction_top"]) if "area_fraction_top" in p.dtype.names else 0.5
+        area_tot = float(p["area"])
+
+        # Top PMT component
+        p_top = p.copy()
+        p_top["area"] = area_tot * frac_top
+        plot_peak_waveform_model(p_top, t0=t0, ax=ax,
+            color=style.VIOLET, alpha_fill=0.2, linewidth=0.3)
+
+        # Bottom PMT component
+        p_bot = p.copy()
+        p_bot["area"] = area_tot * (1 - frac_top)
+        plot_peak_waveform_model(p_bot, t0=t0, ax=ax,
+            color="#E67E22", alpha_fill=0.2, linewidth=0.3)
+
+        # Total (sum)
+        plot_peak_waveform_model(p, t0=t0, ax=ax,
+            color=c, alpha_fill=0.15, linewidth=0.4, label=lbl)
+
+        x_start = (int(p["time"]) - t0) / 1e9
+        end_ns = int(p["endtime"]) if "endtime" in p.dtype.names else int(p["time"]) + int(p["length"]) * int(p["dt"])
+        x_end = (end_ns - t0) / 1e9
+        ax._peak_regions.append({
+            "x_start": x_start, "x_end": x_end,
+            "center_x": (x_start + x_end) / 2,
+            "index": i, "type": ptype, "area": area_tot,
+        })
+
+    ax.axhline(0, color="k", alpha=0.15, linewidth=0.4)
+    ax.set_ylabel("Model pulse [PE/ns]")
+    style.tighten_ylim(ax)
+    if plotted_types:
+        leg = ax.legend(loc="upper right", fontsize=style.plt.rcParams["font.size"] - 1)
+        # Make legend interactive for the first S1 and S2 entries
+        ax._legend_state = {}
+        ax._legend_artists = {}
+        for lh, txt in zip(leg.legend_handles, leg.get_texts()):
+            lh.set_picker(True)
+            txt.set_picker(True)
+            label = txt.get_text().lower()
+            if 's1' in label or 's2' in label:
+                key = 's1' if 's1' in label else 's2'
+                ax._legend_state[key] = True
+                ax._legend_artists[key] = lh
 
 
 # ── peak stacking ──────────────────────────────────────────────
