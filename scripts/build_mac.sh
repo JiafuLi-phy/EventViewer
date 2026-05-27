@@ -7,7 +7,7 @@ echo "=== Cleaning ==="
 rm -rf dist/XENONnT-EventViewer dist/XENONnT-EventViewer.app
 
 echo "=== Building ==="
-pyinstaller \
+~/Library/Python/3.9/bin/pyinstaller \
   --onedir \
   --windowed \
   --name XENONnT-EventViewer \

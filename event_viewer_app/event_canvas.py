@@ -45,6 +45,7 @@ class EventCanvas(QWidget):
         self._canvas = None
         self._toolbar = None
         self._click_cid = None
+        self._resizing = False
         self._setup_ui()
 
     def _setup_ui(self):
@@ -52,9 +53,15 @@ class EventCanvas(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(2)
 
-        self._fig = Figure(figsize=(18, 14), facecolor="white")
+        self._fig = Figure(figsize=(14, 10), facecolor="white")
         self._canvas = FigureCanvasQTAgg(self._fig)
-        self._canvas.setMinimumWidth(600)
+        self._canvas.setSizePolicy(
+            QWidget().sizePolicy().horizontalPolicy(),
+            QWidget().sizePolicy().verticalPolicy(),
+        )
+        # Let widget fill available space
+        self._canvas.setMinimumWidth(400)
+        self._canvas.setMinimumHeight(300)
 
         # Connect matplotlib events for interactive peak clicking
         self._click_cid = self._canvas.mpl_connect(
@@ -75,6 +82,19 @@ class EventCanvas(QWidget):
         if self._toolbar is not None:
             layout.addWidget(self._toolbar)
         layout.addWidget(self._canvas)
+
+    def resizeEvent(self, event):
+        """Auto-scale figure to fit widget size."""
+        super().resizeEvent(event)
+        if self._resizing or self._canvas is None:
+            return
+        w = self._canvas.width()
+        h = self._canvas.height()
+        if w > 0 and h > 0:
+            self._resizing = True
+            dpi = self._fig.get_dpi()
+            self._fig.set_size_inches((w - 20) / dpi, (h - 20) / dpi)
+            self._resizing = False
 
     @property
     def figure(self) -> Figure:

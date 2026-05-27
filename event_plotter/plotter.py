@@ -528,7 +528,7 @@ def plot_pmt_hit_pattern(
     sc = ax.scatter(
         pos["x"][active], pos["y"][active],
         c=area[active], norm=norm, cmap=cmap,
-        s=marker_size, edgecolors="white", linewidths=0.5,
+        s=marker_size, edgecolors="white", linewidths=0.2,
         zorder=3,
     )
 
@@ -650,7 +650,7 @@ def plot_event_full(
         s2_hp_kwargs = {}
 
     # default hit-pattern options — vmax computed per area array below
-    hp_defaults = dict(log_scale=False, marker_size=25, show_colorbar=True, label="Area [PE]")
+    hp_defaults = dict(log_scale=False, marker_size=12, show_colorbar=True, label="Area [PE]")
     for d in (s1_hp_kwargs, s2_hp_kwargs):
         for k, v in hp_defaults.items():
             d.setdefault(k, v)
@@ -1246,7 +1246,7 @@ def plot_peak_zoom(
         for ax_pmt, arr_name in [(ax_pmt_top, "top"), (ax_pmt_bot, "bottom")]:
             plot_pmt_hit_pattern(area, pmt_positions, to_pe,
                                  array_name=arr_name, ax=ax_pmt, cmap="plasma",
-                                 vmin=0, marker_size=30,
+                                 vmin=0, marker_size=12,
                                  show_colorbar=True, label=pattern_label)
             ax_pmt.set_title(f"{label} {arr_name.capitalize()} PMT{pmt_title_suffix}")
 
