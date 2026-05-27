@@ -364,6 +364,8 @@ def plot_peaks(
     original_indices = original_indices[time_order]
 
     # Store peak hit regions on the axes for interactive clicking
+    # Ensure minimum clickable width for narrow peaks
+    MIN_CLICK_WIDTH = 1e-4  # 100 microseconds in seconds
     ax._peak_regions = []
 
     if has_waveform(peaks):
@@ -388,6 +390,7 @@ def plot_peaks(
             x_end = x_start + n * dt / 1e9
             ax._peak_regions.append({
                 "x_start": x_start, "x_end": x_end,
+                "center_x": (x_start + x_end) / 2,
                 "index": int(original_indices[i]),
                 "type": ptype, "area": float(p["area"]),
                 "time": int(p["time"]), "endtime": int(p["time"]) + n * dt,
@@ -415,6 +418,7 @@ def plot_peaks(
             x_end = (int(p["endtime"]) - t0) / 1e9 if "endtime" in p.dtype.names else x_start + 1e-8
             ax._peak_regions.append({
                 "x_start": x_start, "x_end": x_end,
+                "center_x": (x_start + x_end) / 2,
                 "index": int(original_indices[i]),
                 "type": ptype, "area": float(p["area"]),
                 "time": int(p["time"]),
@@ -443,6 +447,7 @@ def plot_peaks(
             x_end = (end_ns - t0) / 1e9
             ax._peak_regions.append({
                 "x_start": x_start, "x_end": x_end,
+                "center_x": (x_start + x_end) / 2,
                 "index": int(original_indices[i]),
                 "type": ptype, "area": float(p["area"]),
                 "time": int(p["time"]),
@@ -536,23 +541,21 @@ def plot_pmt_hit_pattern(
             zorder=2,
         )
 
-    # TPC boundary circle
-    try:
-        import straxen
-        tpc_r = straxen.tpc_r
-    except Exception:
-        tpc_r = 47.9  # XENONnT TPC radius in cm
+    # PMT array boundary circle
+    # Compute from PMT positions to match actual detector geometry
+    pmt_r = np.sqrt(pmt_positions["x"]**2 + pmt_positions["y"]**2).max()
+    r_bound = pmt_r * 1.02
     ax.add_artist(
         plt.Circle(
-            (0, 0), tpc_r,
+            (0, 0), r_bound,
             edgecolor="k", facecolor="none",
             linewidth=1.2, zorder=1,
         )
     )
 
     ax.set_aspect("equal")
-    ax.set_xlim(-tpc_r * 1.08, tpc_r * 1.08)
-    ax.set_ylim(-tpc_r * 1.08, tpc_r * 1.08)
+    ax.set_xlim(-r_bound * 1.06, r_bound * 1.06)
+    ax.set_ylim(-r_bound * 1.06, r_bound * 1.06)
     ax.set_xlabel("x [cm]")
     ax.set_ylabel("y [cm]")
     ax.set_title(array_name.capitalize(), fontsize=style.plt.rcParams["font.size"])
@@ -863,7 +866,7 @@ def plot_event_full(
     # ── suptitle ──
     if title is None:
         title = _make_event_title(event, run_id=run_id)
-    fig.suptitle(title, fontsize=_rsize + 2, fontweight="bold", y=0.98)
+    fig.suptitle(title, fontsize=_rsize + 1, fontweight="bold", y=0.99)
 
     return fig
 
@@ -1216,7 +1219,7 @@ def plot_peak_zoom(
 
     if title is None:
         title = _make_event_title(event, run_id=run_id)
-    fig.suptitle(title, fontsize=_rsize + 2, fontweight="bold", y=0.98)
+    fig.suptitle(title, fontsize=_rsize + 1, fontweight="bold", y=0.99)
 
     return fig
 

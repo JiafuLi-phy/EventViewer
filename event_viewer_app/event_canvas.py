@@ -93,7 +93,7 @@ class EventCanvas(QWidget):
         import warnings
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", message=".*not compatible with tight_layout.*")
-            self._fig.tight_layout(pad=0.8)
+            self._fig.tight_layout(pad=1.5)
         self._canvas.draw_idle()
 
     def set_message(self, text: str):
@@ -124,13 +124,21 @@ class EventCanvas(QWidget):
         if x is None:
             return
 
-        # Hit-test: find peaks whose time span contains the click x.
-        # If multiple overlap, pick the one with the largest area.
-        hits = []
+        # Proximity-based hit test: find the nearest peak within tolerance.
+        # Narrow peaks are hard to click with strict span matching.
+        MAX_CLICK_DIST = 0.0005  # 500 microseconds tolerance
+        best = None
+        best_dist = MAX_CLICK_DIST
         for region in peak_regions:
-            if region['x_start'] <= x <= region['x_end']:
-                hits.append(region)
+            cx = region.get('center_x', (region['x_start'] + region['x_end']) / 2)
+            dist = abs(x - cx)
+            if dist < best_dist:
+                best_dist = dist
+                best = region
+            # Also check exact span match for wide peaks
+            elif region['x_start'] <= x <= region['x_end']:
+                if best is None or region['area'] > best['area']:
+                    best = region
 
-        if hits:
-            best = max(hits, key=lambda r: r['area'])
+        if best is not None:
             self.peak_clicked.emit(best['index'])
