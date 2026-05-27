@@ -75,3 +75,22 @@ exe = EXE(
     codesign_identity=None,
     entitlements_file=None,
 )
+
+# macOS .app bundle for double-click launch
+if sys.platform == "darwin":
+    app = BUNDLE(
+        exe,
+        name="XENONnT-EventViewer.app",
+        icon=None,
+        bundle_identifier="org.xenon.eventviewer",
+        info_plist={
+            "NSHighResolutionCapable": True,
+            "CFBundleName": "XENONnT Event Viewer",
+            "CFBundleShortVersionString": "2.0.0",
+            "CFBundleInfoDictionaryVersion": "6.0",
+            "CFBundlePackageType": "APPL",
+            "LSEnvironment": {
+                "LC_ALL": "en_US.UTF-8",
+            },
+        },
+    )
