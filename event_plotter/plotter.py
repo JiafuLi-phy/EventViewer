@@ -1163,7 +1163,7 @@ def plot_peak_zoom(
     ax_full = fig.add_subplot(gs[1, 0])
     ax_pmt_bot = fig.add_subplot(gs[1, 1])
 
-    fig._peak_axes = [ax_full]
+    fig._peak_axes = [ax_full, ax_peak]
 
     ptype = int(peak["type"])
     color = style.PEAK_COLORS.get(ptype, style.NEUTRAL_MID)
@@ -1185,6 +1185,15 @@ def plot_peak_zoom(
     ax_peak.set_title(f"{label} Peak  |  area={peak['area']:.0f} PE", fontweight="bold")
     ax_peak.set_xlabel("Time [s]")
     _annotate_peak_info(ax_peak, event, "s1" if ptype == 1 else "s2")
+    # Add clickable region covering the entire zoom panel
+    ax_peak._peak_regions = [{
+        "x_start": (t_peak - margin) / 1e9,
+        "x_end": (t_end + margin) / 1e9,
+        "center_x": (t_peak + t_end) / 2e9,
+        "index": highlight_idx,
+        "type": ptype,
+        "area": float(peak["area"]),
+    }]
 
     # ── Full event with highlight ──
     t0_ev = int(event["time"])
