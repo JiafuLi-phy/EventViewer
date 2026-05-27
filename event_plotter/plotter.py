@@ -525,6 +525,8 @@ def plot_pmt_hit_pattern(
 
     # plot active PMTs
     active = ~mask_dead
+    # Store PMT IDs for hover display
+    ax._pmt_ids = pos["i"].tolist()
     sc = ax.scatter(
         pos["x"][active], pos["y"][active],
         c=area[active], norm=norm, cmap=cmap,
@@ -1133,22 +1135,21 @@ def plot_peak_zoom(
     event: np.ndarray,
     highlight_idx: int,
     event_area_per_channel: Optional[np.ndarray] = None,
-    figsize: Tuple[float, float] = (18, 12),
+    figsize: Tuple[float, float] = (16, 10),
     title: Optional[str] = None,
     fig: Optional[plt.Figure] = None,
     run_id: Optional[str] = None,
 ) -> plt.Figure:
-    """Zoomed single-peak view with PMT hit pattern.
+    """Single-peak zoom with 3-component waveform (top+bottom+total).
 
     Layout::
 
-        ┌──────────────────┬──────────────┐
-        │   Peak waveform   │  PMT Top     │
-        │   (zoomed in)     │  hit pattern │
-        ├──────────────────┼──────────────┤
-        │  Full event       │  PMT Bottom  │
-        │  (with highlight) │  hit pattern │
-        └──────────────────┴──────────────┘
+        ┌───────────────────────────────┐
+        │   Peak waveform (top+bottom)  │
+        │   Legend: [top] [bot] [total] │
+        ├──────────────┬────────────────┤
+        │  PMT Top     │  PMT Bottom    │
+        └──────────────┴────────────────┘
     """
     if fig is None:
         fig = plt.figure(figsize=figsize, facecolor="white")
@@ -1157,15 +1158,14 @@ def plot_peak_zoom(
         fig.clear()
 
     gs = gridspec.GridSpec(2, 2, figure=fig,
-                           height_ratios=[1.0, 1.0],
+                           height_ratios=[1.2, 1.0],
                            hspace=0.5, wspace=0.4)
 
-    ax_peak = fig.add_subplot(gs[0, 0])
-    ax_pmt_top = fig.add_subplot(gs[0, 1])
-    ax_full = fig.add_subplot(gs[1, 0])
+    ax_wf = fig.add_subplot(gs[0, :])  # full-width waveform
+    ax_pmt_top = fig.add_subplot(gs[1, 0])
     ax_pmt_bot = fig.add_subplot(gs[1, 1])
 
-    fig._peak_axes = [ax_full, ax_peak]
+    fig._peak_axes = [ax_wf]
 
     ptype = int(peak["type"])
     color = style.PEAK_COLORS.get(ptype, style.NEUTRAL_MID)
@@ -1177,78 +1177,94 @@ def plot_peak_zoom(
     margin = max(500, int((t_end - t_peak) * 1.0))
     t0 = t_peak - margin
 
-    # ── Zoomed peak waveform ──
-    if has_waveform(np.array([peak])):
-        plot_peak_waveform(peak, t0=t0, ax=ax_peak, color=color,
-                           alpha_fill=0.5, linewidth=1.5, center_time=True)
-    else:
-        plot_peak_waveform_model(peak, t0=t0, ax=ax_peak, color=color,
-                                 alpha_fill=0.5, linewidth=1.5)
-    ax_peak.set_title(f"{label} Peak  |  area={peak['area']:.0f} PE", fontweight="bold")
-    ax_peak.set_xlabel("Time [s]")
-    _annotate_peak_info(ax_peak, event, "s1" if ptype == 1 else "s2")
-    # Add clickable region covering the entire zoom panel
-    ax_peak._peak_regions = [{
+    # ── 3-component waveform: top PMT + bottom PMT = total ──
+    frac_top = float(peak["area_fraction_top"]) if "area_fraction_top" in peak.dtype.names else 0.5
+    area_total = float(peak["area"])
+    area_top = area_total * frac_top
+    area_bot = area_total * (1 - frac_top)
+
+    # Build copies of the peak with scaled areas for top/bottom
+    peak_top = peak.copy()
+    peak_top["area"] = area_top
+    peak_bot = peak.copy()
+    peak_bot["area"] = area_bot
+
+    # Plot top (violet/orange)
+    top_color = style.VIOLET
+    bot_color = "#E67E22"  # orange
+    sum_color = color
+
+    artists_top = plot_peak_waveform_model(peak_top, t0=t0, ax=ax_wf,
+        color=top_color, alpha_fill=0.3, linewidth=0.8, label=f"Top PMT ({area_top:.0f} PE)")
+    artists_bot = plot_peak_waveform_model(peak_bot, t0=t0, ax=ax_wf,
+        color=bot_color, alpha_fill=0.3, linewidth=0.8, label=f"Bottom PMT ({area_bot:.0f} PE)")
+    artists_sum = plot_peak_waveform_model(peak, t0=t0, ax=ax_wf,
+        color=sum_color, alpha_fill=0.4, linewidth=1.5, label=f"Sum ({area_total:.0f} PE)")
+
+    ax_wf.set_title(f"{label} Peak  |  area={area_total:.0f} PE", fontweight="bold")
+    ax_wf.set_xlabel("Time [s]")
+    ax_wf.axhline(0, color="k", alpha=0.15, linewidth=0.4)
+    style.tighten_ylim(ax_wf)
+
+    # Interactive legend: click to toggle top/bottom/total
+    leg = ax_wf.legend(loc="upper right", fontsize=_rsize - 1)
+    for lh in leg.legend_handles:
+        lh.set_picker(True)
+        lh.set_linewidth(2.0)
+    for txt in leg.get_texts():
+        txt.set_picker(True)
+    # Store legend state on axes for toggle handling
+    ax_wf._legend_artists = {
+        "top": artists_top,
+        "bottom": artists_bot,
+        "total": artists_sum,
+    }
+    ax_wf._legend_state = {"top": True, "bottom": True, "total": True}
+
+    # Clickable region for returning to overview
+    x_range = (t_end + margin - (t_peak - margin)) / 1e9
+    ax_wf._peak_regions = [{
         "x_start": (t_peak - margin) / 1e9,
         "x_end": (t_end + margin) / 1e9,
         "center_x": (t_peak + t_end) / 2e9,
         "index": highlight_idx,
         "type": ptype,
-        "area": float(peak["area"]),
+        "area": area_total,
     }]
 
-    # ── Full event with highlight ──
-    t0_ev = int(event["time"])
-    if len(all_peaks):
-        plot_peaks(all_peaks, t0=t0_ev, ax=ax_full,
-                   show_largest=200, alpha_fill=0.15, linewidth=0.4,
-                   highlight_idx=highlight_idx)
-    _mark_peak_span(ax_full, event, "s1", t0_ev, style.BLUE_MAIN)
-    _mark_peak_span(ax_full, event, "s2", t0_ev, style.GREEN_POSITIVE)
-    ax_full.set_title("Full event  (selected peak highlighted)", fontsize=_rsize + 1, fontweight="bold")
-
     # ── PMT hit patterns ──
-    # Individual peaks from peak_basics don't have area_per_channel.
-    # Use EAC data as best approximation for S1/S2 peaks; for unknowns
-    # show the combined event pattern.
-    area = np.zeros(len(to_pe))
-    pattern_label = "Area [PE]"
-    pmt_title_suffix = ""
+    area_pmt = np.zeros(len(to_pe))
+    pmt_suffix = ""
 
     if has_per_channel(np.array([peak])):
-        area = peak["area_per_channel"]
-        pmt_title_suffix = f" (peak {highlight_idx})"
+        area_pmt = peak["area_per_channel"]
     elif event_area_per_channel is not None:
         eac = event_area_per_channel
         if ptype == 1 and "s1_area_per_channel" in eac.dtype.names:
-            area = eac["s1_area_per_channel"]
-            pmt_title_suffix = " (main S1)"
+            area_pmt = eac["s1_area_per_channel"]
+            pmt_suffix = " (main S1)"
         elif ptype == 2 and "s2_area_per_channel" in eac.dtype.names:
-            area = eac["s2_area_per_channel"]
-            pmt_title_suffix = " (main S2)"
+            area_pmt = eac["s2_area_per_channel"]
+            pmt_suffix = " (main S2)"
         else:
-            # Unknown peak: show combined event pattern
             for key in ("s1_area_per_channel", "s2_area_per_channel",
                          "alt_s1_area_per_channel", "alt_s2_area_per_channel"):
                 if key in eac.dtype.names:
-                    area = area + eac[key]
-            pmt_title_suffix = " (event total)"
+                    area_pmt = area_pmt + eac[key]
+            pmt_suffix = " (event total)"
 
-    if np.all(area == 0):
-        # Truly no data: show a text note instead of empty plot
-        for ax_pmt, arr_name in [(ax_pmt_top, "top"), (ax_pmt_bot, "bottom")]:
+    for ax_pmt, arr_name in [(ax_pmt_top, "top"), (ax_pmt_bot, "bottom")]:
+        if np.all(area_pmt == 0):
             ax_pmt.text(0.5, 0.5, f"No per-channel\ndata for {label}",
                        transform=ax_pmt.transAxes, ha="center", va="center",
                        color="grey", fontsize=_rsize)
-            ax_pmt.set_title(f"{label} {arr_name.capitalize()} PMT")
             ax_pmt.set_aspect("equal")
-    else:
-        for ax_pmt, arr_name in [(ax_pmt_top, "top"), (ax_pmt_bot, "bottom")]:
-            plot_pmt_hit_pattern(area, pmt_positions, to_pe,
+        else:
+            plot_pmt_hit_pattern(area_pmt, pmt_positions, to_pe,
                                  array_name=arr_name, ax=ax_pmt, cmap="plasma",
                                  vmin=0, marker_size=60,
-                                 show_colorbar=True, label=pattern_label)
-            ax_pmt.set_title(f"{label} {arr_name.capitalize()} PMT{pmt_title_suffix}")
+                                 show_colorbar=True, label="Area [PE]")
+        ax_pmt.set_title(f"{arr_name.capitalize()} PMT{pmt_suffix}")
 
     if title is None:
         title = _make_event_title(event, run_id=run_id)

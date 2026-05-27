@@ -85,6 +85,8 @@ class EventCanvas(QWidget):
         # ── Events ──
         self._canvas.mpl_connect('button_press_event', self._on_click)
         self._canvas.mpl_connect('scroll_event', self._on_scroll)
+        self._canvas.mpl_connect('motion_notify_event', self._on_hover)
+        self._hover_annot = None
 
     @property
     def figure(self):
@@ -133,6 +135,12 @@ class EventCanvas(QWidget):
 
     def _on_click(self, event):
         if event.dblclick or event.inaxes is None:
+            # Check if clicking on legend (for toggle)
+            if event.inaxes is not None:
+                self._check_legend_click(event)
+            return
+        # Check legend click first
+        if self._check_legend_click(event):
             return
         regions = getattr(event.inaxes, '_peak_regions', None)
         if not regions:
@@ -152,6 +160,35 @@ class EventCanvas(QWidget):
         if best is not None:
             self.peak_clicked.emit(best['index'])
 
+    def _check_legend_click(self, event):
+        """Toggle waveform layers when legend label is clicked."""
+        state = getattr(event.inaxes, '_legend_state', None)
+        artists = getattr(event.inaxes, '_legend_artists', None)
+        if state is None or artists is None:
+            return False
+        # Check if click hit a legend text or handle
+        leg = event.inaxes.get_legend()
+        if leg is None:
+            return False
+        for txt in leg.get_texts():
+            if txt.contains(event)[0]:
+                label = txt.get_text().lower()
+                for key in state:
+                    if key in label:
+                        state[key] = not state[key]
+                        vis = state[key]
+                        # Toggle all artists for this layer
+                        for art_key, art_list in artists.items():
+                            if art_key == key:
+                                if isinstance(art_list, list):
+                                    for a in art_list:
+                                        a.set_visible(vis)
+                                else:
+                                    art_list.set_visible(vis)
+                        self._canvas.draw_idle()
+                        return True
+        return False
+
     def _on_scroll(self, event):
         if event.inaxes is None:
             return
@@ -168,4 +205,34 @@ class EventCanvas(QWidget):
             ymin, ymax = ax.get_ylim()
             ax.set_xlim(cx - (cx - xmin) * s, cx + (xmax - cx) * s)
             ax.set_ylim(cy - (cy - ymin) * s, cy + (ymax - cy) * s)
+            self._canvas.draw_idle()
+
+    def _on_hover(self, event):
+        """Show PMT ID on hover."""
+        if event.inaxes is None:
+            return
+        for coll in event.inaxes.collections:
+            if not hasattr(coll, 'get_offsets'):
+                continue
+            cont, info = coll.contains(event)
+            if cont:
+                idx = info['ind'][0]
+                offsets = coll.get_offsets()
+                if idx < len(offsets):
+                    x, y = offsets[idx]
+                    pmt_info = getattr(event.inaxes, '_pmt_ids', None)
+                    pid = pmt_info[idx] if pmt_info is not None and idx < len(pmt_info) else idx
+                    if self._hover_annot is not None:
+                        self._hover_annot.remove()
+                    self._hover_annot = event.inaxes.annotate(
+                        f"PMT {pid}", (x, y),
+                        xytext=(5, 5), textcoords='offset points',
+                        fontsize=8, color='black',
+                        bbox=dict(boxstyle='round,pad=0.2', facecolor='yellow', alpha=0.8),
+                    )
+                    self._canvas.draw_idle()
+                    return
+        if self._hover_annot is not None:
+            self._hover_annot.remove()
+            self._hover_annot = None
             self._canvas.draw_idle()

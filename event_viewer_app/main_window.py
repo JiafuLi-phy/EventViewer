@@ -53,18 +53,21 @@ class PeakListWidget(QWidget):
 
         self._peak_indices = []  # maps table row → original peak index
 
-    def populate(self, peaks: np.ndarray):
+    def populate(self, peaks: np.ndarray, main_s1_idx=None, main_s2_idx=None):
         """Fill table with peak data. *peaks* is a structured array sorted by area desc."""
         self._table.setSortingEnabled(False)
         self._table.setRowCount(0)
         self._peak_indices = []
 
-        # Sort by area descending
+        # Sort by area descending, track original indices
         if len(peaks):
+            original_idx = np.arange(len(peaks))
             order = np.argsort(peaks["area"])[::-1]
             peaks = peaks[order]
+            original_idx = original_idx[order]
 
         for i, p in enumerate(peaks):
+            orig_i = original_idx[i]
             row = self._table.rowCount()
             self._table.insertRow(row)
 
@@ -106,6 +109,16 @@ class PeakListWidget(QWidget):
             elif ptype == 2:
                 for col in range(len(self.COLUMNS)):
                     self._table.item(row, col).setBackground(Qt.GlobalColor(0xE8F8E8))
+
+            # Bold + star for main S1/S2
+            if orig_i == main_s1_idx:
+                type_item = self._table.item(row, 0)
+                type_item.setText(type_item.text() + " *")
+                font = type_item.font(); font.setBold(True); type_item.setFont(font)
+            elif orig_i == main_s2_idx:
+                type_item = self._table.item(row, 0)
+                type_item.setText(type_item.text() + " *")
+                font = type_item.font(); font.setBold(True); type_item.setFont(font)
 
             self._peak_indices.append(i)
 
@@ -338,7 +351,9 @@ class MainWindow(QMainWindow):
             self._eac_for_event = eac
 
             # Populate peak list
-            self._peak_list.populate(peaks)
+            s1_idx = int(event["s1_index"]) if "s1_index" in event.dtype.names else None
+            s2_idx = int(event["s2_index"]) if "s2_index" in event.dtype.names else None
+            self._peak_list.populate(peaks, main_s1_idx=s1_idx, main_s2_idx=s2_idx)
 
             # Render
             self._render_event(event, peaks, to_pe, pmt_pos, eac)
