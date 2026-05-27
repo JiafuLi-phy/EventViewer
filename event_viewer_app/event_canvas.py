@@ -1,4 +1,4 @@
-"""Matplotlib canvas with zoom percentage and scroll."""
+"""Matplotlib canvas with zoom percentage control."""
 
 import matplotlib
 
@@ -21,11 +21,11 @@ except ImportError:
 from .qt_compat import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
 )
-from .qt_compat import Qt, Signal, QTimer
+from .qt_compat import Qt, Signal
 
 
 class EventCanvas(QWidget):
-    """Canvas with zoom controls. No scroll area — clean rendering."""
+    """Canvas with page-zoom controls. Toolbar for zoom/pan."""
 
     peak_clicked = Signal(int)
 
@@ -35,12 +35,8 @@ class EventCanvas(QWidget):
         self._zoom = 100
         self._fig = None
         self._canvas = None
+        self._toolbar = None
         self._zoom_label = None
-        self._hover_annot = None
-        self._redraw_timer = QTimer(self)
-        self._redraw_timer.setSingleShot(True)
-        self._redraw_timer.setInterval(30)
-        self._redraw_timer.timeout.connect(self._do_redraw)
         self._setup_ui()
 
     def _setup_ui(self):
@@ -48,35 +44,47 @@ class EventCanvas(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(2)
 
-        # Zoom bar
-        bar = QHBoxLayout()
-        bar.setSpacing(4)
-        bar.addStretch()
+        # ── Figure ──
+        self._fig = Figure(figsize=(14, 12), facecolor="white", dpi=self._base_dpi)
+        self._canvas = FigureCanvasQTAgg(self._fig)
+
+        # ── Top bar: toolbar + zoom ──
+        top = QHBoxLayout()
+        top.setSpacing(4)
+
+        try:
+            self._toolbar = NavigationToolbar2QT(self._canvas, self)
+            self._toolbar.setMaximumHeight(36)
+            top.addWidget(self._toolbar)
+        except Exception:
+            self._toolbar = None
+
+        top.addStretch()
         btn_out = QPushButton("-")
         btn_out.setFixedSize(32, 28)
         btn_out.clicked.connect(lambda: self._set_zoom(self._zoom - 10))
-        bar.addWidget(btn_out)
+        top.addWidget(btn_out)
+
         self._zoom_label = QLabel("100%")
         self._zoom_label.setFixedWidth(42)
         self._zoom_label.setAlignment(Qt.AlignCenter)
         self._zoom_label.setStyleSheet("font-weight: bold; font-size: 12px;")
-        bar.addWidget(self._zoom_label)
+        top.addWidget(self._zoom_label)
+
         btn_in = QPushButton("+")
         btn_in.setFixedSize(32, 28)
         btn_in.clicked.connect(lambda: self._set_zoom(self._zoom + 10))
-        bar.addWidget(btn_in)
-        bar.addStretch()
-        layout.addLayout(bar)
+        top.addWidget(btn_in)
+        top.addStretch()
+        layout.addLayout(top)
 
-        # Figure
-        self._fig = Figure(figsize=(14, 12), facecolor="white", dpi=self._base_dpi)
-        self._canvas = FigureCanvasQTAgg(self._fig)
         layout.addWidget(self._canvas)
 
         # Events
         self._canvas.mpl_connect('button_press_event', self._on_click)
         self._canvas.mpl_connect('scroll_event', self._on_scroll)
         self._canvas.mpl_connect('motion_notify_event', self._on_hover)
+        self._hover_annot = None
 
     @property
     def figure(self):
@@ -109,8 +117,7 @@ class EventCanvas(QWidget):
         if pct == self._zoom:
             return
         self._zoom = pct
-        dpi = int(self._base_dpi * pct / 100)
-        self._fig.set_dpi(dpi)
+        self._fig.set_dpi(int(self._base_dpi * pct / 100))
         self._zoom_label.setText(f"{pct}%")
         self._canvas.draw_idle()
 
@@ -160,31 +167,8 @@ class EventCanvas(QWidget):
                         return
 
     def _on_scroll(self, event):
-        if event.inaxes is None:
-            return
-        ax = event.inaxes
         if event.modifiers & Qt.ControlModifier:
             self._set_zoom(self._zoom + (10 if event.button == 'up' else -10))
-            return
-
-        # Only zoom waveform axes (with lines), not PMT pattern axes
-        if len(ax.lines) == 0:
-            return
-
-        s = 0.8 if event.button == 'up' else 1.25
-        cx, cy = event.xdata, event.ydata
-        if cx is None or cy is None:
-            return
-        xmin, xmax = ax.get_xlim()
-        ymin, ymax = ax.get_ylim()
-        if ymax <= ymin or xmax <= xmin:
-            return
-        ax.set_xlim(cx - (cx - xmin) * s, cx + (xmax - cx) * s)
-        ax.set_ylim(cy - (cy - ymin) * s, cy + (ymax - cy) * s)
-        self._redraw_timer.start()  # debounced redraw
-
-    def _do_redraw(self):
-        self._canvas.draw_idle()
 
     def _on_hover(self, event):
         if event.inaxes is None:
@@ -202,14 +186,13 @@ class EventCanvas(QWidget):
                 offsets = coll.get_offsets()
                 if idx < len(offsets):
                     x, y = offsets[idx]
-                    pmt_info = getattr(event.inaxes, '_pmt_ids', None)
-                    pid = pmt_info[idx] if pmt_info is not None and idx < len(pmt_info) else idx
+                    pmt_ids = getattr(event.inaxes, '_pmt_ids', None)
+                    pid = pmt_ids[idx] if pmt_ids is not None and idx < len(pmt_ids) else idx
                     if self._hover_annot is not None:
                         self._hover_annot.remove()
                     self._hover_annot = event.inaxes.annotate(
-                        f"PMT {pid}", (x, y),
-                        xytext=(5, 5), textcoords='offset points',
-                        fontsize=8, color='black',
+                        f"PMT {pid}", (x, y), xytext=(5, 5),
+                        textcoords='offset points', fontsize=8, color='black',
                         bbox=dict(boxstyle='round,pad=0.2', facecolor='yellow', alpha=0.8),
                     )
                     self._canvas.draw_idle()
