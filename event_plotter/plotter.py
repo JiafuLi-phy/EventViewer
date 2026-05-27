@@ -655,7 +655,7 @@ def plot_event_full(
         fig = plt.figure(figsize=figsize, facecolor="white")
     else:
         fig.set_size_inches(figsize)
-        fig.clear()
+        fig.clf()
 
     _rsize = style.plt.rcParams["font.size"]
 
@@ -1034,7 +1034,7 @@ def plot_peak_zoom(
         fig = plt.figure(figsize=figsize, facecolor="white")
     else:
         fig.set_size_inches(figsize)
-        fig.clear()
+        fig.clf()
 
     gs = gridspec.GridSpec(2, 2, figure=fig,
                            height_ratios=[1.2, 1.0],
