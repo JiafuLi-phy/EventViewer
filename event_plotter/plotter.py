@@ -673,7 +673,7 @@ def plot_event_full(
     t0_ev = int(event["time"])
     if len(peaks):
         # 3-layer waveform: top+bottom+total
-        frac_top = float(event.get("s1_area_fraction_top", 0.5))
+        frac_top = 0.5
         # Build approximate top/bottom waveforms by scaling model pulses
         _draw_3layer_waveform(peaks, t0_ev, ax_wf, show_largest)
     ax_wf.set_title("Event waveform  (top + bottom = total)", fontsize=_rsize + 1, fontweight="bold")
@@ -704,13 +704,21 @@ def plot_event_full(
 
 
 def _draw_3layer_waveform(peaks, t0, ax, show_largest=200):
-    """Draw all peaks as model pulses. Each peak shown with top/bottom/total layers."""
-    peaks = peaks[np.argsort(peaks["area"])[::-1][:show_largest]]
-    peaks = peaks[np.argsort(peaks["time"])]
+    """Draw all peaks as model pulses with top/bottom/total layers.
+    Stores _peak_regions with original indices for click handling."""
+    original_idx = np.arange(len(peaks))
+    if len(peaks) > show_largest:
+        order = np.argsort(peaks["area"])[::-1][:show_largest]
+        peaks = peaks[order]
+        original_idx = original_idx[order]
+    time_order = np.argsort(peaks["time"])
+    peaks = peaks[time_order]
+    original_idx = original_idx[time_order]
 
     plotted_types = set()
     ax._peak_regions = []
     for i, p in enumerate(peaks):
+        orig_i = original_idx[i]
         ptype = int(p["type"])
         c = style.PEAK_COLORS.get(ptype, style.NEUTRAL_MID)
         lbl = style.PEAK_LABELS.get(ptype, f"type={ptype}")
@@ -721,19 +729,16 @@ def _draw_3layer_waveform(peaks, t0, ax, show_largest=200):
         frac_top = float(p["area_fraction_top"]) if "area_fraction_top" in p.dtype.names else 0.5
         area_tot = float(p["area"])
 
-        # Top PMT component
-        p_top = p.copy()
+        p_top = np.array(p, copy=True)
         p_top["area"] = area_tot * frac_top
         plot_peak_waveform_model(p_top, t0=t0, ax=ax,
             color=style.VIOLET, alpha_fill=0.2, linewidth=0.3)
 
-        # Bottom PMT component
-        p_bot = p.copy()
+        p_bot = np.array(p, copy=True)
         p_bot["area"] = area_tot * (1 - frac_top)
         plot_peak_waveform_model(p_bot, t0=t0, ax=ax,
             color="#E67E22", alpha_fill=0.2, linewidth=0.3)
 
-        # Total (sum)
         plot_peak_waveform_model(p, t0=t0, ax=ax,
             color=c, alpha_fill=0.15, linewidth=0.4, label=lbl)
 
@@ -743,25 +748,12 @@ def _draw_3layer_waveform(peaks, t0, ax, show_largest=200):
         ax._peak_regions.append({
             "x_start": x_start, "x_end": x_end,
             "center_x": (x_start + x_end) / 2,
-            "index": i, "type": ptype, "area": area_tot,
+            "index": int(orig_i), "type": ptype, "area": area_tot,
         })
 
     ax.axhline(0, color="k", alpha=0.15, linewidth=0.4)
     ax.set_ylabel("Model pulse [PE/ns]")
     style.tighten_ylim(ax)
-    if plotted_types:
-        leg = ax.legend(loc="upper right", fontsize=style.plt.rcParams["font.size"] - 1)
-        # Make legend interactive for the first S1 and S2 entries
-        ax._legend_state = {}
-        ax._legend_artists = {}
-        for lh, txt in zip(leg.legend_handles, leg.get_texts()):
-            lh.set_picker(True)
-            txt.set_picker(True)
-            label = txt.get_text().lower()
-            if 's1' in label or 's2' in label:
-                key = 's1' if 's1' in label else 's2'
-                ax._legend_state[key] = True
-                ax._legend_artists[key] = lh
 
 
 # ── peak stacking ──────────────────────────────────────────────
