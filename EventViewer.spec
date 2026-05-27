@@ -23,8 +23,6 @@ hiddenimports = [
     "matplotlib.backends.backend_qtagg",
     # numpy (collect all submodules for numpy 2.x compat)
     *collect_submodules("numpy"),
-    # strax
-    "strax",
 ]
 
 a = Analysis(
