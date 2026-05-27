@@ -333,6 +333,7 @@ def plot_peaks(
     legend: bool = True,
     raw_records: Optional[np.ndarray] = None,
     to_pe: Optional[np.ndarray] = None,
+    highlight_idx: Optional[int] = None,
 ) -> plt.Axes:
     """Draw all peaks overlaid on one axes.
 
@@ -342,6 +343,8 @@ def plot_peaks(
     Otherwise falls back to coloured time-span markers.
 
     Peaks are coloured by type (S1=blue, S2=green, unknown=gray).
+
+    Stores ``ax._peak_regions`` for hit-testing on click events.
     """
     if ax is None:
         ax = plt.gca()
@@ -350,59 +353,101 @@ def plot_peaks(
     if t0 is None and len(peaks):
         t0 = int(peaks[0]["time"])
 
-    # keep the largest N by area
+    # keep the largest N by area (track original indices)
+    original_indices = np.arange(len(peaks))
     if len(peaks) > show_largest:
         order = np.argsort(peaks["area"])[::-1][:show_largest]
         peaks = peaks[order]
-    peaks = peaks[np.argsort(peaks["time"])]
+        original_indices = original_indices[order]
+    time_order = np.argsort(peaks["time"])
+    peaks = peaks[time_order]
+    original_indices = original_indices[time_order]
+
+    # Store peak hit regions on the axes for interactive clicking
+    ax._peak_regions = []
 
     if has_waveform(peaks):
         plotted_types = set()
-        for p in peaks:
+        for i, p in enumerate(peaks):
             ptype = int(p["type"])
             c = colors.get(ptype, style.NEUTRAL_MID)
             lbl = style.PEAK_LABELS.get(ptype, f"type={ptype}")
             if ptype in plotted_types:
                 lbl = None
             plotted_types.add(ptype)
+            _af = alpha_fill * 3 if highlight_idx is not None and original_indices[i] == highlight_idx else alpha_fill
+            _lw = linewidth * 4 if highlight_idx is not None and original_indices[i] == highlight_idx else linewidth
             plot_peak_waveform(
-                p, t0=t0, ax=ax, color=c, alpha_fill=alpha_fill,
-                linewidth=linewidth, label=lbl,
+                p, t0=t0, ax=ax, color=c, alpha_fill=_af,
+                linewidth=_lw, label=lbl,
             )
+            # record hit region
+            x_start = (int(p["time"]) - t0) / 1e9
+            n = int(p["length"])
+            dt = int(p["dt"]) if "dt" in p.dtype.names else 10
+            x_end = x_start + n * dt / 1e9
+            ax._peak_regions.append({
+                "x_start": x_start, "x_end": x_end,
+                "index": int(original_indices[i]),
+                "type": ptype, "area": float(p["area"]),
+                "time": int(p["time"]), "endtime": int(p["time"]) + n * dt,
+            })
         ax.set_ylabel("Intensity [PE/ns]")
         style.tighten_ylim(ax)
     elif raw_records is not None and len(raw_records):
-        # Build waveforms from raw_records
         from . import io as _io
         plotted_types = set()
-        for p in peaks:
+        for i, p in enumerate(peaks):
             ptype = int(p["type"])
             c = colors.get(ptype, style.NEUTRAL_MID)
             lbl = style.PEAK_LABELS.get(ptype, f"type={ptype}")
             if ptype in plotted_types:
                 lbl = None
             plotted_types.add(ptype)
+            _af = alpha_fill * 3 if highlight_idx is not None and original_indices[i] == highlight_idx else alpha_fill
+            _lw = linewidth * 4 if highlight_idx is not None and original_indices[i] == highlight_idx else linewidth
             _plot_peak_from_records(
                 p, raw_records, t0=t0, ax=ax, color=c,
-                alpha_fill=alpha_fill, linewidth=linewidth,
+                alpha_fill=_af, linewidth=_lw,
                 label=lbl, to_pe=to_pe,
             )
+            x_start = (int(p["time"]) - t0) / 1e9
+            x_end = (int(p["endtime"]) - t0) / 1e9 if "endtime" in p.dtype.names else x_start + 1e-8
+            ax._peak_regions.append({
+                "x_start": x_start, "x_end": x_end,
+                "index": int(original_indices[i]),
+                "type": ptype, "area": float(p["area"]),
+                "time": int(p["time"]),
+                "endtime": int(p["endtime"]) if "endtime" in p.dtype.names else int(p["time"]) + int(p["length"]) * int(p["dt"]),
+            })
         ax.set_ylabel("Amplitude [ADC/ns]" if to_pe is None else "Intensity [PE/ns]")
         style.tighten_ylim(ax)
     else:
         # Use model pulse shapes (fast rise / slow decay) from metadata
         plotted_types = set()
-        for p in peaks:
+        for i, p in enumerate(peaks):
             ptype = int(p["type"])
             c = colors.get(ptype, style.NEUTRAL_MID)
             lbl = style.PEAK_LABELS.get(ptype, f"type={ptype}")
             if ptype in plotted_types:
                 lbl = None
             plotted_types.add(ptype)
+            _af = alpha_fill * 3 if highlight_idx is not None and original_indices[i] == highlight_idx else alpha_fill
+            _lw = linewidth * 4 if highlight_idx is not None and original_indices[i] == highlight_idx else linewidth
             plot_peak_waveform_model(
-                p, t0=t0, ax=ax, color=c, alpha_fill=alpha_fill,
-                linewidth=linewidth, label=lbl,
+                p, t0=t0, ax=ax, color=c, alpha_fill=_af,
+                linewidth=_lw, label=lbl,
             )
+            x_start = (int(p["time"]) - t0) / 1e9
+            end_ns = int(p["endtime"]) if "endtime" in p.dtype.names else int(p["time"]) + int(p["length"]) * int(p["dt"])
+            x_end = (end_ns - t0) / 1e9
+            ax._peak_regions.append({
+                "x_start": x_start, "x_end": x_end,
+                "index": int(original_indices[i]),
+                "type": ptype, "area": float(p["area"]),
+                "time": int(p["time"]),
+                "endtime": end_ns,
+            })
         ax.set_ylabel("Model pulse [PE/ns]")
         style.tighten_ylim(ax)
 
@@ -560,6 +605,7 @@ def plot_event_full(
     fig: Optional[plt.Figure] = None,
     raw_records: Optional[np.ndarray] = None,
     run_id: Optional[str] = None,
+    highlight_peak_idx: Optional[int] = None,
 ) -> plt.Figure:
     """Main multi-panel event display.
 
@@ -618,7 +664,7 @@ def plot_event_full(
     gs_main = gridspec.GridSpec(
         4, 2, figure=fig,
         height_ratios=[1.0, 1.0, 1.25, 1.25],
-        hspace=0.55, wspace=0.35,
+        hspace=0.65, wspace=0.40,
     )
 
     # row 0 (top): S1 zoom wf, S2 zoom wf, S1 top PMT, S1 bottom PMT
@@ -652,6 +698,9 @@ def plot_event_full(
         1, 1, subplot_spec=gs_main[3, :],
     )
     ax_ev_log = fig.add_subplot(gs_ev_log[0])
+
+    # Store axes with peak data for interactive hit-testing
+    fig._peak_axes = [ax_ev, ax_ev_log]
 
     _rsize = style.plt.rcParams["font.size"]
 
@@ -792,6 +841,7 @@ def plot_event_full(
             peaks, t0=t0_ev, ax=ax_ev,
             show_largest=show_largest, alpha_fill=0.15, linewidth=0.4,
             raw_records=raw_records, to_pe=to_pe,
+            highlight_idx=highlight_peak_idx,
         )
     _mark_peak_span(ax_ev, event, "s1", t0_ev, style.BLUE_MAIN)
     _mark_peak_span(ax_ev, event, "s2", t0_ev, style.GREEN_POSITIVE)
@@ -803,6 +853,7 @@ def plot_event_full(
             peaks, t0=t0_ev, ax=ax_ev_log,
             show_largest=show_largest, alpha_fill=0.15, linewidth=0.4,
             raw_records=raw_records, to_pe=to_pe,
+            highlight_idx=highlight_peak_idx,
         )
         ax_ev_log.set_yscale("symlog", linthresh=10, linscale=0.5)
     _mark_peak_span(ax_ev_log, event, "s1", t0_ev, style.BLUE_MAIN)
@@ -1067,6 +1118,107 @@ def _mark_peak_span(
         fontsize=style.plt.rcParams["font.size"] - 1,
         color=color, fontweight="bold", va="top", ha="left",
     )
+
+
+def plot_peak_zoom(
+    peak: np.ndarray,
+    all_peaks: np.ndarray,
+    to_pe: np.ndarray,
+    pmt_positions: np.ndarray,
+    event: np.ndarray,
+    highlight_idx: int,
+    event_area_per_channel: Optional[np.ndarray] = None,
+    figsize: Tuple[float, float] = (18, 12),
+    title: Optional[str] = None,
+    fig: Optional[plt.Figure] = None,
+    run_id: Optional[str] = None,
+) -> plt.Figure:
+    """Zoomed single-peak view with PMT hit pattern.
+
+    Layout::
+
+        ┌──────────────────┬──────────────┐
+        │   Peak waveform   │  PMT Top     │
+        │   (zoomed in)     │  hit pattern │
+        ├──────────────────┼──────────────┤
+        │  Full event       │  PMT Bottom  │
+        │  (with highlight) │  hit pattern │
+        └──────────────────┴──────────────┘
+    """
+    if fig is None:
+        fig = plt.figure(figsize=figsize, facecolor="white")
+    else:
+        fig.set_size_inches(figsize)
+        fig.clear()
+
+    gs = gridspec.GridSpec(2, 2, figure=fig,
+                           height_ratios=[1.0, 1.0],
+                           hspace=0.5, wspace=0.4)
+
+    ax_peak = fig.add_subplot(gs[0, 0])
+    ax_pmt_top = fig.add_subplot(gs[0, 1])
+    ax_full = fig.add_subplot(gs[1, 0])
+    ax_pmt_bot = fig.add_subplot(gs[1, 1])
+
+    fig._peak_axes = [ax_full]
+
+    ptype = int(peak["type"])
+    color = style.PEAK_COLORS.get(ptype, style.NEUTRAL_MID)
+    label = style.PEAK_LABELS.get(ptype, f"type={ptype}")
+    _rsize = style.plt.rcParams["font.size"]
+
+    t_peak = int(peak["time"])
+    t_end = int(peak["endtime"]) if "endtime" in peak.dtype.names else t_peak + int(peak["length"]) * int(peak["dt"])
+    margin = max(300, int((t_end - t_peak) * 0.5))
+    t0 = t_peak - margin
+
+    # ── Zoomed peak waveform ──
+    if has_waveform(np.array([peak])):
+        plot_peak_waveform(peak, t0=t0, ax=ax_peak, color=color,
+                           alpha_fill=0.5, linewidth=1.5, center_time=True)
+    else:
+        plot_peak_waveform_model(peak, t0=t0, ax=ax_peak, color=color,
+                                 alpha_fill=0.5, linewidth=1.5)
+    ax_peak.set_title(f"{label} Peak  |  area={peak['area']:.0f} PE", fontweight="bold")
+    ax_peak.set_xlabel("Time [s]")
+    _annotate_peak_info(ax_peak, event, "s1" if ptype == 1 else "s2")
+
+    # ── Full event with highlight ──
+    t0_ev = int(event["time"])
+    if len(all_peaks):
+        plot_peaks(all_peaks, t0=t0_ev, ax=ax_full,
+                   show_largest=200, alpha_fill=0.15, linewidth=0.4,
+                   highlight_idx=highlight_idx)
+    _mark_peak_span(ax_full, event, "s1", t0_ev, style.BLUE_MAIN)
+    _mark_peak_span(ax_full, event, "s2", t0_ev, style.GREEN_POSITIVE)
+    ax_full.set_title("Full event  (selected peak highlighted)", fontsize=_rsize + 1, fontweight="bold")
+
+    # ── PMT hit patterns for this peak ──
+    if has_per_channel(np.array([peak])):
+        area = peak["area_per_channel"]
+    elif event_area_per_channel is not None:
+        eac = event_area_per_channel
+        if ptype == 1 and "s1_area_per_channel" in eac.dtype.names:
+            area = eac["s1_area_per_channel"]
+        elif ptype == 2 and "s2_area_per_channel" in eac.dtype.names:
+            area = eac["s2_area_per_channel"]
+        else:
+            area = np.zeros(len(to_pe))
+    else:
+        area = np.zeros(len(to_pe))
+
+    for ax_pmt, arr_name in [(ax_pmt_top, "top"), (ax_pmt_bot, "bottom")]:
+        plot_pmt_hit_pattern(area, pmt_positions, to_pe,
+                             array_name=arr_name, ax=ax_pmt, cmap="plasma",
+                             vmin=0, marker_size=50,
+                             show_colorbar=True, label="Area [PE]")
+        ax_pmt.set_title(f"{label} {arr_name.capitalize()} PMT")
+
+    if title is None:
+        title = _make_event_title(event, run_id=run_id)
+    fig.suptitle(title, fontsize=_rsize + 2, fontweight="bold", y=0.98)
+
+    return fig
 
 
 def _make_event_title(event: np.ndarray, run_id: Optional[str] = None) -> str:

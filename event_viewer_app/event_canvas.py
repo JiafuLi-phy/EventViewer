@@ -22,6 +22,7 @@ except ImportError:
 
 # Import Qt widgets via compat layer
 from .qt_compat import QWidget, QVBoxLayout, QLabel
+from .qt_compat import Signal
 
 
 class EventCanvas(QWidget):
@@ -30,13 +31,20 @@ class EventCanvas(QWidget):
     The toolbar is optional — on older matplotlib + PySide2 combos
     it may fail to construct, in which case keyboard shortcuts are
     available: p=pan, o=zoom, h=home, s=save.
+
+    Signals:
+        peak_clicked(int): emitted when user clicks on a peak region.
+            Carries the original peak index in the full peaks array.
     """
+
+    peak_clicked = Signal(int)
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self._fig = None
         self._canvas = None
         self._toolbar = None
+        self._click_cid = None
         self._setup_ui()
 
     def _setup_ui(self):
@@ -47,6 +55,11 @@ class EventCanvas(QWidget):
         self._fig = Figure(figsize=(18, 14), facecolor="white")
         self._canvas = FigureCanvasQTAgg(self._fig)
         self._canvas.setMinimumWidth(600)
+
+        # Connect matplotlib events for interactive peak clicking
+        self._click_cid = self._canvas.mpl_connect(
+            'button_press_event', self._on_canvas_click
+        )
 
         # Toolbar may fail on some matplotlib+PySide2 combos
         try:
@@ -80,7 +93,7 @@ class EventCanvas(QWidget):
         import warnings
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", message=".*not compatible with tight_layout.*")
-            self._fig.tight_layout(pad=0.5)
+            self._fig.tight_layout(pad=0.8)
         self._canvas.draw_idle()
 
     def set_message(self, text: str):
@@ -91,3 +104,33 @@ class EventCanvas(QWidget):
                 ha="center", va="center", fontsize=14, color="grey")
         ax.set_axis_off()
         self._canvas.draw_idle()
+
+    def _on_canvas_click(self, event):
+        """Handle matplotlib button press — hit-test peaks and emit signal."""
+        # Only respond to single clicks (not double-clicks used by zoom tool)
+        if event.dblclick:
+            return
+        if event.inaxes is None:
+            return
+        # Don't intercept when toolbar pan/zoom is active
+        if self._toolbar is not None and self._toolbar.mode != '':
+            return
+
+        peak_regions = getattr(event.inaxes, '_peak_regions', None)
+        if not peak_regions:
+            return
+
+        x = event.xdata
+        if x is None:
+            return
+
+        # Hit-test: find peaks whose time span contains the click x.
+        # If multiple overlap, pick the one with the largest area.
+        hits = []
+        for region in peak_regions:
+            if region['x_start'] <= x <= region['x_end']:
+                hits.append(region)
+
+        if hits:
+            best = max(hits, key=lambda r: r['area'])
+            self.peak_clicked.emit(best['index'])

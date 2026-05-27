@@ -5,9 +5,12 @@ nature-skills-main. Call apply_style() once at the top of any plotting
 script.
 """
 
+import platform
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
+
+_IS_MACOS = platform.system() == "Darwin"
 
 # ── semantic colour palette (nature-skills derived) ──────────────
 
@@ -23,6 +26,8 @@ NEUTRAL_BLACK = "#272727"
 TEAL = "#42949E"
 VIOLET = "#9A4D8E"
 GOLD = "#FFD700"
+HIGHLIGHT = "#FFD700"     # peak selection highlight
+HIGHLIGHT_ALPHA = 0.30
 
 # semantic mapping for XENON peak types
 PEAK_COLORS = {
@@ -65,13 +70,23 @@ def apply_style(
     """
     # ── fonts ──
     plt.rcParams["font.family"] = "sans-serif"
-    plt.rcParams["font.sans-serif"] = [
-        "Arial",
-        "Helvetica",
-        "DejaVu Sans",
-        "Liberation Sans",
-        "sans-serif",
-    ]
+    if _IS_MACOS:
+        plt.rcParams["font.sans-serif"] = [
+            "Helvetica Neue",
+            "Helvetica",
+            "Arial",
+            "DejaVu Sans",
+            "Liberation Sans",
+            "sans-serif",
+        ]
+    else:
+        plt.rcParams["font.sans-serif"] = [
+            "Arial",
+            "Helvetica",
+            "DejaVu Sans",
+            "Liberation Sans",
+            "sans-serif",
+        ]
     plt.rcParams["font.size"] = font_size
     plt.rcParams["mathtext.default"] = "regular"
 

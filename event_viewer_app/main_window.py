@@ -8,6 +8,8 @@ import numpy as np
 from .qt_compat import (
     QMainWindow, QSplitter, QStatusBar, QMenuBar, QMenu,
     QFileDialog, QMessageBox, QLabel, QInputDialog,
+    QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView,
+    QWidget, QVBoxLayout, QShortcut,
 )
 from .qt_compat import Qt
 from .qt_compat import QAction, QKeySequence
@@ -23,6 +25,109 @@ from event_viewer_app.event_canvas import EventCanvas
 from event_plotter import plotter, style
 
 
+class PeakListWidget(QWidget):
+    """Table widget listing all peaks for the current event."""
+
+    COLUMNS = ["Type", "Area [PE]", "Width [ns]", "Rise [ns]", "Time [ns]"]
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(2)
+
+        header = QLabel("Peaks")
+        header.setStyleSheet("font-weight: bold; font-size: 12px; padding: 4px 0;")
+        layout.addWidget(header)
+
+        self._table = QTableWidget(0, len(self.COLUMNS))
+        self._table.setHorizontalHeaderLabels(self.COLUMNS)
+        self._table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self._table.setSelectionMode(QAbstractItemView.SingleSelection)
+        self._table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self._table.setAlternatingRowColors(True)
+        self._table.verticalHeader().setVisible(False)
+        self._table.horizontalHeader().setStretchLastSection(True)
+        self._table.setSortingEnabled(True)
+        layout.addWidget(self._table)
+
+        self._peak_indices = []  # maps table row → original peak index
+
+    def populate(self, peaks: np.ndarray):
+        """Fill table with peak data. *peaks* is a structured array sorted by area desc."""
+        self._table.setSortingEnabled(False)
+        self._table.setRowCount(0)
+        self._peak_indices = []
+
+        # Sort by area descending
+        if len(peaks):
+            order = np.argsort(peaks["area"])[::-1]
+            peaks = peaks[order]
+
+        for i, p in enumerate(peaks):
+            row = self._table.rowCount()
+            self._table.insertRow(row)
+
+            ptype = int(p["type"])
+            type_label = style.PEAK_LABELS.get(ptype, f"?{ptype}")
+            type_color = style.PEAK_COLORS.get(ptype, style.NEUTRAL_MID)
+
+            # Type
+            item = QTableWidgetItem(type_label)
+            item.setForeground(Qt.GlobalColor.black)
+            self._table.setItem(row, 0, item)
+
+            # Area
+            item = QTableWidgetItem(f"{float(p['area']):.0f}")
+            self._table.setItem(row, 1, item)
+
+            # Width (range_90p_area or duration)
+            if "range_90p_area" in p.dtype.names:
+                width = float(p["range_90p_area"])
+            else:
+                width = (int(p["endtime"]) - int(p["time"])) if "endtime" in p.dtype.names else 0
+            item = QTableWidgetItem(f"{width:.0f}")
+            self._table.setItem(row, 2, item)
+
+            # Rise time
+            rise = float(p["rise_time"]) if "rise_time" in p.dtype.names else 0
+            item = QTableWidgetItem(f"{rise:.0f}")
+            self._table.setItem(row, 3, item)
+
+            # Time (relative to event start)
+            ev_time = int(p["time"])
+            item = QTableWidgetItem(f"{ev_time}")
+            self._table.setItem(row, 4, item)
+
+            # Color-code S1/S2 rows
+            if ptype == 1:
+                for col in range(len(self.COLUMNS)):
+                    self._table.item(row, col).setBackground(Qt.GlobalColor(0xE8F0FE))
+            elif ptype == 2:
+                for col in range(len(self.COLUMNS)):
+                    self._table.item(row, col).setBackground(Qt.GlobalColor(0xE8F8E8))
+
+            self._peak_indices.append(i)
+
+        self._table.setSortingEnabled(True)
+        self._table.resizeColumnsToContents()
+
+    def get_selected_peak_index(self) -> int:
+        """Return the original peak index for the selected row, or -1."""
+        rows = set()
+        for idx in self._table.selectionModel().selectedRows():
+            rows.add(idx.row())
+        if len(rows) != 1:
+            return -1
+        row = rows.pop()
+        if row < len(self._peak_indices):
+            return self._peak_indices[row]
+        return -1
+
+    def clear_selection(self):
+        self._table.clearSelection()
+
+
 class MainWindow(QMainWindow):
     """Main window for the XENONnT Event Viewer."""
 
@@ -30,6 +135,13 @@ class MainWindow(QMainWindow):
         super().__init__()
         self._dm = DataManager()
         self._current_event = None
+        self._current_peaks_index = None  # original index of each peak in full array
+
+        # Interaction state
+        self._view_mode = "overview"     # "overview" or "peak_zoom"
+        self._selected_peak_idx = None
+        self._peaks_for_event = None     # all peaks for current event (original order)
+        self._eac_for_event = None       # event_area_per_channel for current event
 
         style.apply_style(font_size=9)
 
@@ -98,17 +210,32 @@ class MainWindow(QMainWindow):
     def _setup_ui(self):
         splitter = QSplitter(Qt.Horizontal)
 
-        # Left panel: browser
+        # ── Left panel: browser + peak list ──
+        left_panel = QWidget()
+        left_layout = QVBoxLayout(left_panel)
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.setSpacing(4)
+
         self._browser = EventBrowser(self._dm)
         self._browser.setMaximumWidth(320)
         self._browser.setMinimumWidth(220)
         self._browser.event_selected.connect(self._on_event_selected)
         self._browser.data_source_changed.connect(self._on_data_source_changed)
-        splitter.addWidget(self._browser)
 
-        # Right panel: canvas
+        self._peak_list = PeakListWidget()
+        self._peak_list.setMaximumWidth(320)
+        self._peak_list.setMinimumWidth(220)
+        self._peak_list._table.itemSelectionChanged.connect(self._on_peak_list_selection)
+
+        left_layout.addWidget(self._browser, 3)
+        left_layout.addWidget(self._peak_list, 2)
+
+        splitter.addWidget(left_panel)
+
+        # ── Right panel: canvas ──
         self._canvas = EventCanvas()
         self._canvas.setMinimumWidth(600)
+        self._canvas.peak_clicked.connect(self._on_peak_clicked)
         splitter.addWidget(self._canvas)
 
         splitter.setSizes([280, 1320])
@@ -125,7 +252,9 @@ class MainWindow(QMainWindow):
 
     def _setup_shortcuts(self):
         """Additional keyboard shortcuts not bound to menu actions."""
-        pass
+        QShortcut(QKeySequence("Escape"), self).activated.connect(
+            self._clear_peak_selection
+        )
 
     # ── slots ─────────────────────────────────────────────────────
 
@@ -177,8 +306,10 @@ class MainWindow(QMainWindow):
     def _on_event_selected(self, event_number: int):
         """Render the selected event on the canvas."""
         self._status_label.setText(f"Loading event {event_number} ...")
-        self._canvas.clear()
-        self._canvas.canvas.draw_idle()
+
+        # Reset to overview mode
+        self._view_mode = "overview"
+        self._selected_peak_idx = None
 
         try:
             event = self._dm.get_event(event_number)
@@ -194,13 +325,55 @@ class MainWindow(QMainWindow):
                 self._canvas.set_message("Missing PMT geometry / gain data")
                 return
 
-            eac = None
-            if self._dm.mode == "strax":
-                eac = self._dm.get_event_area_per_channel(event_number)
+            # Always load EAC (not just for strax mode)
+            eac = self._dm.get_event_area_per_channel(event_number)
 
-            # Draw into the canvas figure
-            fig = self._canvas.figure
+            # Cache for interaction
+            self._current_event = event_number
+            self._peaks_for_event = peaks
+            self._eac_for_event = eac
 
+            # Populate peak list
+            self._peak_list.populate(peaks)
+
+            # Render
+            self._render_event(event, peaks, to_pe, pmt_pos, eac)
+
+        except Exception as e:
+            self._canvas.set_message(f"Error loading event {event_number}:\n{e}")
+            self._status_label.setText(f"Error: {e}")
+
+    def _render_event(self, event, peaks, to_pe, pmt_pos, eac):
+        """Render the current event (overview or peak zoom)."""
+        self._canvas.clear()
+        self._canvas.canvas.draw_idle()
+
+        fig = self._canvas.figure
+
+        if self._view_mode == "peak_zoom" and self._selected_peak_idx is not None:
+            # Find the highlighted peak in the full peaks array
+            if self._peaks_for_event is not None and len(self._peaks_for_event) > self._selected_peak_idx:
+                peak = self._peaks_for_event[self._selected_peak_idx]
+            else:
+                peak = peaks[self._selected_peak_idx] if self._selected_peak_idx < len(peaks) else peaks[0]
+
+            plotter.plot_peak_zoom(
+                peak, peaks, to_pe, pmt_pos,
+                event,
+                highlight_idx=self._selected_peak_idx,
+                event_area_per_channel=eac,
+                fig=fig,
+                run_id=self._dm.run_id,
+            )
+
+            ptype = int(peak["type"])
+            ptype_label = style.PEAK_LABELS.get(ptype, f"type={ptype}")
+            area = float(peak["area"])
+            self._status_label.setText(
+                f"Event {self._current_event}  |  {ptype_label} peak  |  area={area:.0f} PE  |  "
+                f"(Escape to return to overview)"
+            )
+        else:
             plotter.plot_event_full(
                 event, peaks, to_pe, pmt_pos,
                 event_area_per_channel=eac,
@@ -209,32 +382,73 @@ class MainWindow(QMainWindow):
                 run_id=self._dm.run_id,
             )
 
-            self._canvas.draw()
-
-            # Status
             n_peaks = len(peaks) if peaks is not None else 0
             s1_info = s2_info = ""
-            if self._dm.mode == "strax" and event is not None:
-                if "s1_area" in event.dtype.names:
-                    s1_info = f"  S1={event['s1_area']:.0f} PE"
-                if "s2_area" in event.dtype.names:
-                    s2_info = f"  S2={event['s2_area']:.0f} PE"
+            if event is not None and "s1_area" in event.dtype.names:
+                s1_info = f"  S1={event['s1_area']:.0f} PE"
+            if event is not None and "s2_area" in event.dtype.names:
+                s2_info = f"  S2={event['s2_area']:.0f} PE"
             self._status_label.setText(
-                f"Event {event_number}  |  {n_peaks} peaks{s1_info}{s2_info}"
+                f"Event {self._current_event}  |  {n_peaks} peaks{s1_info}{s2_info}"
             )
-            self._current_event = event_number
 
-        except Exception as e:
-            self._canvas.set_message(f"Error loading event {event_number}:\n{e}")
-            self._status_label.setText(f"Error: {e}")
+        self._canvas.draw()
+
+    def _on_peak_clicked(self, peak_idx: int):
+        """Canvas click on a peak region — enter zoom mode."""
+        if self._peaks_for_event is None:
+            return
+
+        if self._view_mode == "peak_zoom" and self._selected_peak_idx == peak_idx:
+            # Click same peak again → go back to overview
+            self._clear_peak_selection()
+            return
+
+        self._view_mode = "peak_zoom"
+        self._selected_peak_idx = peak_idx
+        self._peak_list.clear_selection()
+
+        # Re-render
+        event = self._dm.get_event(self._current_event)
+        peaks = self._peaks_for_event
+        to_pe = self._dm.get_to_pe()
+        pmt_pos = self._dm.get_pmt_positions()
+        eac = self._eac_for_event
+        self._render_event(event, peaks, to_pe, pmt_pos, eac)
+
+    def _on_peak_list_selection(self):
+        """Peak selected from the table — enter zoom mode."""
+        peak_idx = self._peak_list.get_selected_peak_index()
+        if peak_idx < 0:
+            return
+        # Map from sorted-order index to original index
+        order = np.argsort(self._peaks_for_event["area"])[::-1]
+        original_idx = int(order[peak_idx])
+        self._on_peak_clicked(original_idx)
+
+    def _clear_peak_selection(self):
+        """Return to overview mode."""
+        if self._view_mode == "overview":
+            return
+        self._view_mode = "overview"
+        self._selected_peak_idx = None
+        self._peak_list.clear_selection()
+
+        event = self._dm.get_event(self._current_event)
+        peaks = self._peaks_for_event
+        to_pe = self._dm.get_to_pe()
+        pmt_pos = self._dm.get_pmt_positions()
+        eac = self._eac_for_event
+        self._render_event(event, peaks, to_pe, pmt_pos, eac)
 
     # ── export ────────────────────────────────────────────────────
 
     def _on_export_pdf(self):
         if self._current_event is None:
             return
+        suffix = f"_peak{self._selected_peak_idx}" if self._selected_peak_idx is not None else ""
         path, _ = QFileDialog.getSaveFileName(
-            self, "Export PDF", f"event_{self._current_event}.pdf",
+            self, "Export PDF", f"event_{self._current_event}{suffix}.pdf",
             "PDF Files (*.pdf)"
         )
         if not path:
@@ -245,8 +459,9 @@ class MainWindow(QMainWindow):
     def _on_export_png(self):
         if self._current_event is None:
             return
+        suffix = f"_peak{self._selected_peak_idx}" if self._selected_peak_idx is not None else ""
         path, _ = QFileDialog.getSaveFileName(
-            self, "Export PNG", f"event_{self._current_event}.png",
+            self, "Export PNG", f"event_{self._current_event}{suffix}.png",
             "PNG Files (*.png)"
         )
         if not path:
