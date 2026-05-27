@@ -21,16 +21,15 @@ except ImportError:
     from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT
 
 # Import Qt widgets via compat layer
-from .qt_compat import QWidget, QVBoxLayout, QLabel, QScrollArea
-from .qt_compat import Qt, Signal
+from .qt_compat import QWidget, QVBoxLayout, QLabel
+from .qt_compat import Signal
 
 
 class EventCanvas(QWidget):
     """Widget containing the matplotlib figure canvas and navigation toolbar.
 
-    The canvas is wrapped in a QScrollArea so users can scroll when the figure
-    is larger than the viewport.  Keyboard shortcuts available when toolbar
-    fails: p=pan, o=zoom, h=home, s=save.
+    Keyboard shortcuts available when toolbar fails:
+    p=pan, o=zoom, h=home, s=save.
 
     Signals:
         peak_clicked(int): emitted when user clicks on a peak region.
@@ -44,7 +43,6 @@ class EventCanvas(QWidget):
         self._canvas = None
         self._toolbar = None
         self._click_cid = None
-        self._scroll = None
         self._setup_ui()
 
     def _setup_ui(self):
@@ -52,10 +50,12 @@ class EventCanvas(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(2)
 
-        # Figure with moderate size; canvas auto-fills the scroll area
         self._fig = Figure(figsize=(16, 12), facecolor="white")
         self._canvas = FigureCanvasQTAgg(self._fig)
-        self._canvas.setMinimumSize(800, 600)
+        self._canvas.setSizePolicy(
+            QWidget().sizePolicy().horizontalPolicy().Expanding,
+            QWidget().sizePolicy().verticalPolicy().Expanding,
+        )
 
         # Connect matplotlib events for interactive peak clicking
         self._click_cid = self._canvas.mpl_connect(
@@ -75,14 +75,7 @@ class EventCanvas(QWidget):
 
         if self._toolbar is not None:
             layout.addWidget(self._toolbar)
-
-        # Wrap canvas in scroll area for pan/scroll when figure is large
-        self._scroll = QScrollArea()
-        self._scroll.setWidgetResizable(True)
-        self._scroll.setWidget(self._canvas)
-        self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        self._scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        layout.addWidget(self._scroll)
+        layout.addWidget(self._canvas)
 
     @property
     def figure(self) -> Figure:
@@ -103,10 +96,6 @@ class EventCanvas(QWidget):
             warnings.filterwarnings("ignore", message=".*not compatible with tight_layout.*")
             self._fig.tight_layout(pad=1.5)
         self._canvas.draw_idle()
-        # Update canvas size to match figure after tight_layout
-        size = self._fig.get_size_inches()
-        dpi = self._fig.get_dpi()
-        self._canvas.setMinimumSize(int(size[0] * dpi), int(size[1] * dpi))
 
     def set_message(self, text: str):
         """Show a text message on the canvas (no data state)."""
@@ -123,7 +112,6 @@ class EventCanvas(QWidget):
             return
         if event.inaxes is None:
             return
-        # Don't intercept when toolbar pan/zoom is active
         if self._toolbar is not None and self._toolbar.mode != '':
             return
 
