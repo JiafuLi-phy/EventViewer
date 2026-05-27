@@ -10,6 +10,9 @@ __pycache__/
 *.pyc
 *.pyo
 
+# Scripts not for distribution
+scripts/setup_github.sh
+
 # Output (keep .npz bundles)
 scripts/output/*.pdf
 scripts/output/*.png
