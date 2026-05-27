@@ -1,6 +1,7 @@
-"""Matplotlib canvas with zoom percentage control."""
+"""Matplotlib canvas widget for event display, embedded in Qt."""
 
 import matplotlib
+import warnings
 
 for backend in ("QtAgg", "Qt5Agg"):
     try:
@@ -19,24 +20,27 @@ except ImportError:
     from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT
 
 from .qt_compat import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QScrollArea,
+    QSizePolicy,
 )
 from .qt_compat import Qt, Signal
 
 
 class EventCanvas(QWidget):
-    """Canvas with page-zoom controls. Toolbar for zoom/pan."""
+    """Scrollable matplotlib page with mouse-wheel axes zoom."""
 
     peak_clicked = Signal(int)
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._base_dpi = 80
-        self._zoom = 100
         self._fig = None
         self._canvas = None
         self._toolbar = None
+        self._hover_annot = None
+        self._scroll = None
         self._zoom_label = None
+        self._page_zoom = 100
+        self._base_dpi = 90
         self._setup_ui()
 
     def _setup_ui(self):
@@ -44,47 +48,47 @@ class EventCanvas(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(2)
 
-        # ── Figure ──
-        self._fig = Figure(figsize=(14, 12), facecolor="white", dpi=self._base_dpi)
+        self._fig = Figure(figsize=(12, 16), facecolor="white", dpi=self._base_dpi)
         self._canvas = FigureCanvasQTAgg(self._fig)
+        self._canvas.setStyleSheet("background: white;")
+        self._canvas.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
 
-        # ── Top bar: toolbar + zoom ──
-        top = QHBoxLayout()
-        top.setSpacing(4)
-
+        controls = QHBoxLayout()
+        controls.setContentsMargins(0, 0, 0, 0)
+        controls.setSpacing(4)
         try:
             self._toolbar = NavigationToolbar2QT(self._canvas, self)
             self._toolbar.setMaximumHeight(36)
-            top.addWidget(self._toolbar)
+            controls.addWidget(self._toolbar)
         except Exception:
-            self._toolbar = None
-
-        top.addStretch()
-        btn_out = QPushButton("-")
-        btn_out.setFixedSize(32, 28)
-        btn_out.clicked.connect(lambda: self._set_zoom(self._zoom - 10))
-        top.addWidget(btn_out)
-
+            pass
+        controls.addStretch()
+        zoom_out = QPushButton("-")
+        zoom_out.setFixedSize(30, 26)
+        zoom_out.clicked.connect(lambda: self.set_page_zoom(self._page_zoom - 10))
+        controls.addWidget(zoom_out)
         self._zoom_label = QLabel("100%")
-        self._zoom_label.setFixedWidth(42)
         self._zoom_label.setAlignment(Qt.AlignCenter)
-        self._zoom_label.setStyleSheet("font-weight: bold; font-size: 12px;")
-        top.addWidget(self._zoom_label)
+        self._zoom_label.setFixedWidth(48)
+        controls.addWidget(self._zoom_label)
+        zoom_in = QPushButton("+")
+        zoom_in.setFixedSize(30, 26)
+        zoom_in.clicked.connect(lambda: self.set_page_zoom(self._page_zoom + 10))
+        controls.addWidget(zoom_in)
+        controls.addStretch()
+        layout.addLayout(controls)
 
-        btn_in = QPushButton("+")
-        btn_in.setFixedSize(32, 28)
-        btn_in.clicked.connect(lambda: self._set_zoom(self._zoom + 10))
-        top.addWidget(btn_in)
-        top.addStretch()
-        layout.addLayout(top)
+        self._scroll = QScrollArea()
+        self._scroll.setWidget(self._canvas)
+        self._scroll.setWidgetResizable(False)
+        self._scroll.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
+        self._scroll.setStyleSheet("QScrollArea { background: #e8e8e8; border: 0; }")
+        layout.addWidget(self._scroll)
 
-        layout.addWidget(self._canvas)
-
-        # Events
         self._canvas.mpl_connect('button_press_event', self._on_click)
         self._canvas.mpl_connect('scroll_event', self._on_scroll)
         self._canvas.mpl_connect('motion_notify_event', self._on_hover)
-        self._hover_annot = None
+        self._update_canvas_size()
 
     @property
     def figure(self):
@@ -95,36 +99,73 @@ class EventCanvas(QWidget):
         return self._canvas
 
     def clear(self):
-        self._fig.clear()
+        if self._hover_annot:
+            try:
+                self._hover_annot.remove()
+            except Exception:
+                pass
+            self._hover_annot = None
+        self._fig.clf()
+        self._canvas.draw()
 
     def draw(self):
-        import warnings
+        self._update_canvas_size()
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", message=".*not compatible with tight_layout.*")
             self._fig.tight_layout(pad=2.0, rect=[0, 0.02, 1, 0.95])
-        self._canvas.draw_idle()
+        self._canvas.draw()
 
     def set_message(self, text: str):
-        self._fig.clear()
+        self._fig.clf()
+        self._fig.set_size_inches(10, 8, forward=True)
         ax = self._fig.add_subplot(111)
         ax.text(0.5, 0.5, text, transform=ax.transAxes,
                 ha="center", va="center", fontsize=14, color="grey")
         ax.set_axis_off()
-        self._canvas.draw_idle()
+        self._update_canvas_size()
+        self._canvas.draw()
 
-    def _set_zoom(self, pct):
-        pct = max(30, min(300, int(pct)))
-        if pct == self._zoom:
+    def set_page_zoom(self, pct: int):
+        pct = max(50, min(250, int(pct)))
+        if pct == self._page_zoom:
             return
-        self._zoom = pct
-        self._fig.set_dpi(int(self._base_dpi * pct / 100))
-        self._zoom_label.setText(f"{pct}%")
-        self._canvas.draw_idle()
+        self._page_zoom = pct
+        if self._zoom_label is not None:
+            self._zoom_label.setText(f"{pct}%")
+        self._update_canvas_size()
+        self._canvas.draw()
+
+    def _update_canvas_size(self):
+        w_in, h_in = self._fig.get_size_inches()
+        scale = self._page_zoom / 100.0
+        self._canvas.setFixedSize(
+            max(1, int(w_in * self._base_dpi * scale)),
+            max(1, int(h_in * self._base_dpi * scale)),
+        )
 
     def _on_click(self, event):
         if event.dblclick or event.inaxes is None:
             return
-        self._check_legend_click(event)
+        # legend toggle
+        state = getattr(event.inaxes, '_legend_state', None)
+        artists = getattr(event.inaxes, '_legend_artists', None)
+        if state and artists:
+            leg = event.inaxes.get_legend()
+            if leg:
+                for txt in leg.get_texts():
+                    if txt.contains(event)[0]:
+                        for key in state:
+                            if key in txt.get_text().lower():
+                                state[key] = not state[key]
+                                a = artists.get(key)
+                                if a is not None:
+                                    if isinstance(a, list):
+                                        for x in a: x.set_visible(state[key])
+                                    else:
+                                        a.set_visible(state[key])
+                                self._canvas.draw_idle()
+                                return
+        # peak hit test
         regions = getattr(event.inaxes, '_peak_regions', None)
         if not regions:
             return
@@ -143,34 +184,8 @@ class EventCanvas(QWidget):
         if best is not None:
             self.peak_clicked.emit(best['index'])
 
-    def _check_legend_click(self, event):
-        state = getattr(event.inaxes, '_legend_state', None)
-        artists = getattr(event.inaxes, '_legend_artists', None)
-        if state is None or artists is None:
-            return
-        leg = event.inaxes.get_legend()
-        if leg is None:
-            return
-        for txt in leg.get_texts():
-            if txt.contains(event)[0]:
-                label = txt.get_text().lower()
-                for key in state:
-                    if key in label:
-                        state[key] = not state[key]
-                        art_obj = artists.get(key)
-                        if art_obj is not None:
-                            if isinstance(art_obj, list):
-                                for a in art_obj: a.set_visible(state[key])
-                            else:
-                                art_obj.set_visible(state[key])
-                        self._canvas.draw_idle()
-                        return
-
     def _on_scroll(self, event):
-        if event.modifiers & Qt.ControlModifier:
-            self._set_zoom(self._zoom + (10 if event.button == 'up' else -10))
-            return
-        if event.inaxes is None or len(event.inaxes.lines) == 0:
+        if event.inaxes is None:
             return
         ax = event.inaxes
         s = 0.8 if event.button == 'up' else 1.25
@@ -179,7 +194,7 @@ class EventCanvas(QWidget):
             return
         xmin, xmax = ax.get_xlim()
         ymin, ymax = ax.get_ylim()
-        if ymax <= ymin or xmax <= xmin:
+        if xmax <= xmin or ymax <= ymin:
             return
         ax.set_xlim(cx - (cx - xmin) * s, cx + (xmax - cx) * s)
         ax.set_ylim(cy - (cy - ymin) * s, cy + (ymax - cy) * s)
@@ -187,7 +202,7 @@ class EventCanvas(QWidget):
 
     def _on_hover(self, event):
         if event.inaxes is None:
-            if self._hover_annot is not None:
+            if self._hover_annot:
                 self._hover_annot.remove()
                 self._hover_annot = None
                 self._canvas.draw_idle()
@@ -198,21 +213,18 @@ class EventCanvas(QWidget):
             cont, info = coll.contains(event)
             if cont:
                 idx = info['ind'][0]
-                offsets = coll.get_offsets()
-                if idx < len(offsets):
-                    x, y = offsets[idx]
-                    pmt_ids = getattr(event.inaxes, '_pmt_ids', None)
-                    pid = pmt_ids[idx] if pmt_ids is not None and idx < len(pmt_ids) else idx
-                    if self._hover_annot is not None:
-                        self._hover_annot.remove()
-                    self._hover_annot = event.inaxes.annotate(
-                        f"PMT {pid}", (x, y), xytext=(5, 5),
-                        textcoords='offset points', fontsize=8, color='black',
-                        bbox=dict(boxstyle='round,pad=0.2', facecolor='yellow', alpha=0.8),
-                    )
-                    self._canvas.draw_idle()
-                    return
-        if self._hover_annot is not None:
+                x, y = coll.get_offsets()[idx]
+                ids = getattr(event.inaxes, '_pmt_ids', None)
+                pid = ids[idx] if ids and idx < len(ids) else idx
+                if self._hover_annot:
+                    self._hover_annot.remove()
+                self._hover_annot = event.inaxes.annotate(
+                    f"PMT {pid}", (x, y), xytext=(5, 5),
+                    textcoords='offset points', fontsize=8, color='black',
+                    bbox=dict(boxstyle='round,pad=0.2', facecolor='yellow', alpha=0.8))
+                self._canvas.draw_idle()
+                return
+        if self._hover_annot:
             self._hover_annot.remove()
             self._hover_annot = None
             self._canvas.draw_idle()

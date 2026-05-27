@@ -66,9 +66,10 @@ def main():
     to_pe = io.load_to_pe(n_channels=len(pmt_positions))
     print(f"  PMT positions: {len(pmt_positions)}")
 
-    # Load peak_basics
-    print("Loading peak_basics ...")
-    peaks_all = io.load_strax_chunks(run_id, "peak_basics")
+    # Load peaks. Use "peaks" for true waveform + area_per_channel when
+    # available, or "peak_basics" for compact metadata-only bundles.
+    print(f"Loading {args.peak_data_type} ...")
+    peaks_all = io.load_strax_chunks(run_id, args.peak_data_type)
     print(f"  {len(peaks_all)} peaks total")
 
     # Load event_area_per_channel if available
@@ -87,6 +88,7 @@ def main():
 
     peaks_list = []
     eac_list = []
+    raw_records_list = []
     event_numbers = []
 
     for i in range(n_events):
@@ -105,6 +107,17 @@ def main():
                 eac_list.append(eac_all[eac_idx[0]])
             else:
                 eac_list.append(None)
+
+        if args.include_raw_records:
+            try:
+                raw = io.load_raw_records_window(
+                    run_id, int(ev["time"]) - args.raw_margin_ns,
+                    int(ev["endtime"]) + args.raw_margin_ns,
+                )
+            except Exception as e:
+                print(f"    raw_records unavailable: {e}")
+                raw = None
+            raw_records_list.append(raw)
 
         s1_str = f"  S1={ev['s1_area']:.0f}" if "s1_area" in ev.dtype.names else ""
         s2_str = f"  S2={ev['s2_area']:.0f}" if "s2_area" in ev.dtype.names else ""
@@ -126,6 +139,8 @@ def main():
 
     if eac_list:
         bundle["eac_list"] = np.array(eac_list, dtype=object)
+    if raw_records_list:
+        bundle["raw_records_list"] = np.array(raw_records_list, dtype=object)
 
     out_path = os.path.join(OUTPUT, f"events_run_{run_id}.npz")
     print(f"\nSaving {n_events} events to {out_path} ...")
@@ -146,6 +161,16 @@ def parse_args():
     p.add_argument("--events", help="Comma-separated event numbers (overrides --n)")
     p.add_argument("--s1-min", type=float, default=1000, help="Minimum S1 area [PE]")
     p.add_argument("--s2-min", type=float, default=100000, help="Minimum S2 area [PE]")
+    p.add_argument(
+        "--peak-data-type", default="peak_basics", choices=("peak_basics", "peaks"),
+        help="'peaks' preserves waveform and per-channel peak maps when available; "
+             "'peak_basics' creates smaller metadata-only bundles",
+    )
+    p.add_argument(
+        "--include-raw-records", action="store_true",
+        help="Include raw_records windows for true event waveforms when accessible",
+    )
+    p.add_argument("--raw-margin-ns", type=int, default=50000, help="raw_records margin around each event")
     return p.parse_args()
 
 

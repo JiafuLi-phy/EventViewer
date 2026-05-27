@@ -30,6 +30,13 @@ class PeakListWidget(QWidget):
 
     COLUMNS = ["Type", "Area [PE]", "Width [ns]", "Rise [ns]", "Time [ns]"]
 
+    class NumericItem(QTableWidgetItem):
+        def __lt__(self, other):
+            try:
+                return float(self.text()) < float(other.text())
+            except Exception:
+                return super().__lt__(other)
+
     def __init__(self, parent=None):
         super().__init__(parent)
         layout = QVBoxLayout(self)
@@ -81,7 +88,7 @@ class PeakListWidget(QWidget):
             self._table.setItem(row, 0, item)
 
             # Area
-            item = QTableWidgetItem(f"{float(p['area']):.0f}")
+            item = self.NumericItem(f"{float(p['area']):.0f}")
             self._table.setItem(row, 1, item)
 
             # Width (range_90p_area or duration)
@@ -89,17 +96,17 @@ class PeakListWidget(QWidget):
                 width = float(p["range_90p_area"])
             else:
                 width = (int(p["endtime"]) - int(p["time"])) if "endtime" in p.dtype.names else 0
-            item = QTableWidgetItem(f"{width:.0f}")
+            item = self.NumericItem(f"{width:.0f}")
             self._table.setItem(row, 2, item)
 
             # Rise time
             rise = float(p["rise_time"]) if "rise_time" in p.dtype.names else 0
-            item = QTableWidgetItem(f"{rise:.0f}")
+            item = self.NumericItem(f"{rise:.0f}")
             self._table.setItem(row, 3, item)
 
             # Time (relative to event start)
             ev_time = int(p["time"])
-            item = QTableWidgetItem(f"{ev_time}")
+            item = self.NumericItem(f"{ev_time}")
             self._table.setItem(row, 4, item)
 
             # Color-code S1/S2 rows
@@ -120,7 +127,9 @@ class PeakListWidget(QWidget):
                 type_item.setText(type_item.text() + " *")
                 font = type_item.font(); font.setBold(True); type_item.setFont(font)
 
-            self._peak_indices.append(i)
+            for col in range(len(self.COLUMNS)):
+                self._table.item(row, col).setData(Qt.UserRole, int(orig_i))
+            self._peak_indices.append(int(orig_i))
 
         self._table.setSortingEnabled(True)
         self._table.resizeColumnsToContents()
@@ -133,8 +142,11 @@ class PeakListWidget(QWidget):
         if len(rows) != 1:
             return -1
         row = rows.pop()
-        if row < len(self._peak_indices):
-            return self._peak_indices[row]
+        item = self._table.item(row, 0)
+        if item is not None:
+            data = item.data(Qt.UserRole)
+            if data is not None:
+                return int(data)
         return -1
 
     def clear_selection(self):
@@ -155,6 +167,7 @@ class MainWindow(QMainWindow):
         self._selected_peak_idx = None
         self._peaks_for_event = None     # all peaks for current event (original order)
         self._eac_for_event = None       # event_area_per_channel for current event
+        self._raw_records_for_event = None
 
         style.apply_style(font_size=9)
 
@@ -309,7 +322,7 @@ class MainWindow(QMainWindow):
         if not ok or not run_id.strip():
             return
         try:
-            n = self._dm.open_strax_run(run_id.strip())
+            n = self._dm.open_strax_run(run_id.strip(), peak_data_type="peaks")
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to load run {run_id}:\n{e}")
             return
@@ -344,11 +357,13 @@ class MainWindow(QMainWindow):
 
             # Always load EAC (not just for strax mode)
             eac = self._dm.get_event_area_per_channel(event_number)
+            raw_records = self._dm.get_raw_records(event_number)
 
             # Cache for interaction
             self._current_event = event_number
             self._peaks_for_event = peaks
             self._eac_for_event = eac
+            self._raw_records_for_event = raw_records
 
             # Populate peak list
             s1_idx = int(event["s1_index"]) if "s1_index" in event.dtype.names else None
@@ -356,13 +371,13 @@ class MainWindow(QMainWindow):
             self._peak_list.populate(peaks, main_s1_idx=s1_idx, main_s2_idx=s2_idx)
 
             # Render
-            self._render_event(event, peaks, to_pe, pmt_pos, eac)
+            self._render_event(event, peaks, to_pe, pmt_pos, eac, raw_records)
 
         except Exception as e:
             self._canvas.set_message(f"Error loading event {event_number}:\n{e}")
             self._status_label.setText(f"Error: {e}")
 
-    def _render_event(self, event, peaks, to_pe, pmt_pos, eac):
+    def _render_event(self, event, peaks, to_pe, pmt_pos, eac, raw_records=None):
         """Render the current event (overview or peak zoom)."""
         self._canvas.clear()
         self._canvas.canvas.draw_idle()
@@ -381,7 +396,9 @@ class MainWindow(QMainWindow):
                 event,
                 highlight_idx=self._selected_peak_idx,
                 event_area_per_channel=eac,
+                raw_records=raw_records,
                 fig=fig,
+                figsize=(12, 13),
                 run_id=self._dm.run_id,
             )
 
@@ -397,7 +414,9 @@ class MainWindow(QMainWindow):
                 event, peaks, to_pe, pmt_pos,
                 event_area_per_channel=eac,
                 show_largest=200,
+                raw_records=raw_records,
                 fig=fig,
+                figsize=(12, 16),
                 run_id=self._dm.run_id,
             )
 
@@ -407,8 +426,9 @@ class MainWindow(QMainWindow):
                 s1_info = f"  S1={event['s1_area']:.0f} PE"
             if event is not None and "s2_area" in event.dtype.names:
                 s2_info = f"  S2={event['s2_area']:.0f} PE"
+            source_info = "  |  real waveforms" if raw_records is not None and len(raw_records) else "  |  model waveforms"
             self._status_label.setText(
-                f"Event {self._current_event}  |  {n_peaks} peaks{s1_info}{s2_info}"
+                f"Event {self._current_event}  |  {n_peaks} peaks{s1_info}{s2_info}{source_info}"
             )
 
         self._canvas.draw()
@@ -433,16 +453,14 @@ class MainWindow(QMainWindow):
         to_pe = self._dm.get_to_pe()
         pmt_pos = self._dm.get_pmt_positions()
         eac = self._eac_for_event
-        self._render_event(event, peaks, to_pe, pmt_pos, eac)
+        raw_records = self._raw_records_for_event
+        self._render_event(event, peaks, to_pe, pmt_pos, eac, raw_records)
 
     def _on_peak_list_selection(self):
         """Peak selected from the table — enter zoom mode."""
-        peak_idx = self._peak_list.get_selected_peak_index()
-        if peak_idx < 0:
+        original_idx = self._peak_list.get_selected_peak_index()
+        if original_idx < 0:
             return
-        # Map from sorted-order index to original index
-        order = np.argsort(self._peaks_for_event["area"])[::-1]
-        original_idx = int(order[peak_idx])
         self._on_peak_clicked(original_idx)
 
     def _clear_peak_selection(self):
@@ -458,7 +476,8 @@ class MainWindow(QMainWindow):
         to_pe = self._dm.get_to_pe()
         pmt_pos = self._dm.get_pmt_positions()
         eac = self._eac_for_event
-        self._render_event(event, peaks, to_pe, pmt_pos, eac)
+        raw_records = self._raw_records_for_event
+        self._render_event(event, peaks, to_pe, pmt_pos, eac, raw_records)
 
     # ── export ────────────────────────────────────────────────────
 

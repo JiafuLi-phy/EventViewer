@@ -47,7 +47,7 @@ def main():
     # ── load data ──
     print(f"Loading data for run {run_id} ...")
     events = io.load_strax_chunks(run_id, "event_info")
-    peaks = io.load_strax_chunks(run_id, "peak_basics")
+    peaks = io.load_strax_chunks(run_id, args.peak_data_type)
     pmt_positions = io.load_pmt_geometry()
     to_pe = io.load_to_pe(n_channels=len(pmt_positions))
 
@@ -219,6 +219,7 @@ def parse_args():
     p.add_argument("--n-events", type=int, default=3, help="Number of events to plot")
     p.add_argument("--s1-min", type=float, default=1000, help="Minimum S1 area [PE]")
     p.add_argument("--s2-min", type=float, default=100000, help="Minimum S2 area [PE]")
+    p.add_argument("--peak-data-type", default="peak_basics", choices=("peak_basics", "peaks"))
     p.add_argument("--stack", action="store_true", help="Also produce stacking plots")
     return p.parse_args()
 

@@ -117,7 +117,7 @@ class EventBrowser(QWidget):
         if not run_id:
             return
         try:
-            n = self._dm.open_strax_run(run_id)
+            n = self._dm.open_strax_run(run_id, peak_data_type="peaks")
         except Exception as e:
             self._src_label.setText(f"Error: {e}")
             return
@@ -140,14 +140,14 @@ class EventBrowser(QWidget):
 
         # Apply filters if event_info fields exist
         mask = np.ones(len(events), dtype=bool)
-        if self._dm.mode == "strax" and "s1_area" in events.dtype.names:
+        if "s1_area" in events.dtype.names:
             mask &= events["s1_area"] > self._s1_min.value()
-        if self._dm.mode == "strax" and "s2_area" in events.dtype.names:
+        if "s2_area" in events.dtype.names:
             mask &= events["s2_area"] > self._s2_min.value()
 
         filtered = events[mask]
         # Sort by S2 descending if available
-        if self._dm.mode == "strax" and "s2_area" in events.dtype.names:
+        if "s2_area" in events.dtype.names:
             order = np.argsort(filtered["s2_area"])[::-1]
             filtered = filtered[order]
 
@@ -157,7 +157,7 @@ class EventBrowser(QWidget):
         self._list.blockSignals(True)
         for ev in filtered:
             ev_num = int(ev["event_number"])
-            if self._dm.mode == "strax":
+            if "s1_area" in ev.dtype.names or "s2_area" in ev.dtype.names:
                 s1 = ev["s1_area"] if "s1_area" in ev.dtype.names else 0
                 s2 = ev["s2_area"] if "s2_area" in ev.dtype.names else 0
                 text = f"#{ev_num}  S1={s1:.0f}  S2={s2:.0f}"

@@ -25,7 +25,12 @@ def find_data_dir(
     """Return the first data directory matching *run_id* and *dtype_prefix*."""
     if storage_dirs is None:
         storage_dirs = [
+            "/dali/lgrandi/xenonnt/raw/",
+            "/dali/lgrandi/xenonnt/processed/",
             "/project/lgrandi/xenonnt/processed/",
+            "/project/lgrandi/xenonnt/processed_sr2_offline_round_1/",
+            "/project/lgrandi/xenonnt/processed_sr2_offline_round_2/",
+            "/project/lgrandi/xenonnt/processed_sr2_offline_round_3/",
             "/project2/lgrandi/xenonnt/processed/",
         ]
     run_str = str(run_id).zfill(6)
@@ -33,9 +38,36 @@ def find_data_dir(
         if not os.path.isdir(base):
             continue
         for d in sorted(os.listdir(base)):
-            if d.startswith(run_str) and dtype_prefix in d:
+            parts = d.split("-")
+            if not d.startswith(run_str):
+                continue
+            if dtype_prefix == "raw_records":
+                matches = len(parts) > 1 and parts[1] == "raw_records"
+            else:
+                matches = dtype_prefix in d
+            if matches:
                 return os.path.join(base, d)
     return None
+
+
+def make_xenonnt_context(xedocs_version: str = "global_v20"):
+    """Return the recommended XENONnT offline context when cutax exists.
+
+    On Midway3 this uses the auto-registered storage stack described in
+    the local XENONnT data-loading guide.  On laptops or packaged builds
+    cutax is normally absent, in which case callers should fall back to
+    direct strax chunk loading or NPZ bundles.
+    """
+    try:
+        import cutax
+    except Exception:
+        return None
+    try:
+        return cutax.contexts.xenonnt_offline(xedocs_version=xedocs_version)
+    except TypeError:
+        return cutax.contexts.xenonnt_offline()
+    except Exception:
+        return None
 
 
 def load_strax_chunks(
@@ -213,6 +245,8 @@ def load_raw_records_window(
 
     if storage_dirs is None:
         storage_dirs = [
+            "/dali/lgrandi/xenonnt/raw/",
+            "/dali/lgrandi/xenonnt/processed/",
             "/project/lgrandi/xenonnt/processed/",
             "/project2/lgrandi/xenonnt/processed/",
         ]
@@ -310,6 +344,49 @@ def build_sum_waveform(
     amp = amp_sum[:n_bins]
     t_out = (t_edges - t0) / 1e9  # seconds
     return t_out, amp
+
+
+def build_array_waveforms(
+    records: np.ndarray,
+    t_start: int,
+    t_end: int,
+    pmt_positions: np.ndarray,
+    t0: int = 0,
+    dt_out: int = 10,
+    to_pe: Optional[np.ndarray] = None,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Build top, bottom, and total waveforms from raw_records."""
+    top_channels = set(pmt_positions[pmt_positions["array"] == "top"]["i"].astype(int).tolist())
+    bot_channels = set(pmt_positions[pmt_positions["array"] == "bottom"]["i"].astype(int).tolist())
+    n_bins = int((t_end - t_start) / dt_out) + 1
+    t_edges = np.linspace(t_start, t_start + n_bins * dt_out, n_bins + 1)
+    top = np.zeros(n_bins + 1)
+    bot = np.zeros(n_bins + 1)
+
+    for rec in records:
+        ch = int(rec["channel"])
+        if ch not in top_channels and ch not in bot_channels:
+            continue
+        rec_dt = int(rec["dt"])
+        rec_len = int(rec["length"])
+        rec_t0 = int(rec["time"])
+        t_samples = rec_t0 + np.arange(rec_len) * rec_dt
+        bin_idx = ((t_samples - t_start) / dt_out).astype(int)
+        valid = (bin_idx >= 0) & (bin_idx < n_bins)
+        if not valid.any():
+            continue
+        data = rec["data"][:rec_len].astype(np.float64) / rec_dt
+        if to_pe is not None and ch < len(to_pe) and to_pe[ch] > 0:
+            data = data * to_pe[ch]
+        if ch in top_channels:
+            np.add.at(top, bin_idx[valid], data[valid])
+        else:
+            np.add.at(bot, bin_idx[valid], data[valid])
+
+    top = top[:n_bins]
+    bot = bot[:n_bins]
+    t_out = (t_edges - t0) / 1e9
+    return t_out, top, bot, top + bot
 
 
 # ── .npz bundle save / load ────────────────────────────────────

@@ -211,6 +211,20 @@ def plot_peak_waveform_model(
     return ax
 
 
+def _plot_step_arrays(ax, x, series, colors, labels, linewidths=None, alphas=None):
+    """Draw one or more already-binned waveforms as filled step arrays."""
+    artists = {}
+    if linewidths is None:
+        linewidths = [0.8] * len(series)
+    if alphas is None:
+        alphas = [0.25] * len(series)
+    for y, color, label, lw, alpha in zip(series, colors, labels, linewidths, alphas):
+        line = ax.plot(x[:-1], y, drawstyle="steps-post", color=color, linewidth=lw, label=label)
+        fill = ax.fill_between(x[:-1], 0, y, step="post", color=color, alpha=alpha, linewidth=0)
+        artists[label.lower()] = [*line, fill]
+    return artists
+
+
 def plot_peak_markers(
     peaks: np.ndarray,
     t0: Optional[int] = None,
@@ -672,10 +686,13 @@ def plot_event_full(
 
     t0_ev = int(event["time"])
     if len(peaks):
-        plot_peaks(peaks, t0=t0_ev, ax=ax_wf,
-                   show_largest=show_largest, alpha_fill=0.2, linewidth=0.5,
-                   highlight_idx=highlight_peak_idx)
-    ax_wf.set_title("Event waveform", fontsize=_rsize + 1, fontweight="bold")
+        _draw_3layer_waveform(
+            peaks, t0=t0_ev, ax=ax_wf, show_largest=show_largest,
+            raw_records=raw_records, to_pe=to_pe, pmt_positions=pmt_positions,
+            highlight_idx=highlight_peak_idx,
+        )
+    ax_wf.set_title("Event waveform: top + bottom + total",
+                    fontsize=_rsize + 1, fontweight="bold")
 
     # ── Row 2: PMT patterns (event total) ──
     if event_area_per_channel is not None:
@@ -701,7 +718,10 @@ def plot_event_full(
     return fig
 
 
-def _draw_3layer_waveform(peaks, t0, ax, show_largest=200):
+def _draw_3layer_waveform(
+    peaks, t0, ax, show_largest=200, raw_records=None, to_pe=None,
+    pmt_positions=None, highlight_idx=None,
+):
     """Draw all peaks as model pulses with top/bottom/total layers.
     Stores _peak_regions with original indices for click handling."""
     original_idx = np.arange(len(peaks))
@@ -715,30 +735,75 @@ def _draw_3layer_waveform(peaks, t0, ax, show_largest=200):
 
     plotted_types = set()
     ax._peak_regions = []
+
+    if raw_records is not None and len(raw_records) and pmt_positions is not None:
+        from . import io as _io
+        t_start = min(int(peaks["time"].min()), int(raw_records["time"].min()))
+        t_end = max(
+            int(peaks["endtime"].max()) if "endtime" in peaks.dtype.names else int(peaks["time"].max()),
+            int(raw_records["time"].max()),
+        )
+        dt = int(np.median(raw_records["dt"])) if "dt" in raw_records.dtype.names else 10
+        x, y_top, y_bot, y_total = _io.build_array_waveforms(
+            raw_records, t_start, t_end, pmt_positions, t0=t0, dt_out=dt, to_pe=to_pe
+        )
+        artists = _plot_step_arrays(
+            ax, x, [y_top, y_bot, y_total],
+            [style.VIOLET, "#E67E22", style.NEUTRAL_BLACK],
+            ["Top", "Bottom", "Total"],
+            linewidths=[0.45, 0.45, 0.8],
+            alphas=[0.18, 0.18, 0.12],
+        )
+        ax._legend_artists = {
+            "top": artists["top"],
+            "bottom": artists["bottom"],
+            "total": artists["total"],
+        }
+        ax._legend_state = {"top": True, "bottom": True, "total": True}
+        for i, p in enumerate(peaks):
+            orig_i = original_idx[i]
+            x_start = (int(p["time"]) - t0) / 1e9
+            end_ns = int(p["endtime"]) if "endtime" in p.dtype.names else int(p["time"]) + int(p["length"]) * int(p["dt"])
+            x_end = (end_ns - t0) / 1e9
+            ax._peak_regions.append({
+                "x_start": x_start, "x_end": x_end,
+                "center_x": (x_start + x_end) / 2,
+                "index": int(orig_i), "type": int(p["type"]), "area": float(p["area"]),
+            })
+        ax.set_ylabel("Intensity [PE/ns]")
+        style.tighten_ylim(ax)
+        leg = ax.legend(loc="upper right", fontsize=style.plt.rcParams["font.size"] - 1)
+        for txt in leg.get_texts():
+            txt.set_picker(True)
+        return
+
     for i, p in enumerate(peaks):
         orig_i = original_idx[i]
         ptype = int(p["type"])
         c = style.PEAK_COLORS.get(ptype, style.NEUTRAL_MID)
-        lbl = style.PEAK_LABELS.get(ptype, f"type={ptype}")
-        if ptype in plotted_types:
-            lbl = None
-        plotted_types.add(ptype)
+        top_lbl = "Top" if "top" not in plotted_types else None
+        bot_lbl = "Bottom" if "bottom" not in plotted_types else None
+        lbl = "Total" if "total" not in plotted_types else None
+        plotted_types.update({"top", "bottom", "total"})
 
         frac_top = float(p["area_fraction_top"]) if "area_fraction_top" in p.dtype.names else 0.5
         area_tot = float(p["area"])
 
         p_top = np.array(p, copy=True)
         p_top["area"] = area_tot * frac_top
+        lw_scale = 3 if highlight_idx is not None and orig_i == highlight_idx else 1
         plot_peak_waveform_model(p_top, t0=t0, ax=ax,
-            color=style.VIOLET, alpha_fill=0.2, linewidth=0.3)
+            color=style.VIOLET, alpha_fill=0.2, linewidth=0.3 * lw_scale,
+            label=top_lbl)
 
         p_bot = np.array(p, copy=True)
         p_bot["area"] = area_tot * (1 - frac_top)
         plot_peak_waveform_model(p_bot, t0=t0, ax=ax,
-            color="#E67E22", alpha_fill=0.2, linewidth=0.3)
+            color="#E67E22", alpha_fill=0.2, linewidth=0.3 * lw_scale,
+            label=bot_lbl)
 
         plot_peak_waveform_model(p, t0=t0, ax=ax,
-            color=c, alpha_fill=0.15, linewidth=0.4, label=lbl)
+            color=c, alpha_fill=0.15, linewidth=0.4 * lw_scale, label=lbl)
 
         x_start = (int(p["time"]) - t0) / 1e9
         end_ns = int(p["endtime"]) if "endtime" in p.dtype.names else int(p["time"]) + int(p["length"]) * int(p["dt"])
@@ -752,6 +817,7 @@ def _draw_3layer_waveform(peaks, t0, ax, show_largest=200):
     ax.axhline(0, color="k", alpha=0.15, linewidth=0.4)
     ax.set_ylabel("Model pulse [PE/ns]")
     style.tighten_ylim(ax)
+    ax.legend(loc="upper right", fontsize=style.plt.rcParams["font.size"] - 1)
 
 
 # ── peak stacking ──────────────────────────────────────────────
@@ -1014,6 +1080,7 @@ def plot_peak_zoom(
     event: np.ndarray,
     highlight_idx: int,
     event_area_per_channel: Optional[np.ndarray] = None,
+    raw_records: Optional[np.ndarray] = None,
     figsize: Tuple[float, float] = (16, 10),
     title: Optional[str] = None,
     fig: Optional[plt.Figure] = None,
@@ -1073,12 +1140,33 @@ def plot_peak_zoom(
     bot_color = "#E67E22"  # orange
     sum_color = color
 
-    artists_top = plot_peak_waveform_model(peak_top, t0=t0, ax=ax_wf,
-        color=top_color, alpha_fill=0.3, linewidth=0.8, label=f"Top PMT ({area_top:.0f} PE)")
-    artists_bot = plot_peak_waveform_model(peak_bot, t0=t0, ax=ax_wf,
-        color=bot_color, alpha_fill=0.3, linewidth=0.8, label=f"Bottom PMT ({area_bot:.0f} PE)")
-    artists_sum = plot_peak_waveform_model(peak, t0=t0, ax=ax_wf,
-        color=sum_color, alpha_fill=0.4, linewidth=1.5, label=f"Sum ({area_total:.0f} PE)")
+    if raw_records is not None and len(raw_records) and pmt_positions is not None:
+        from . import io as _io
+        rec_mask = (raw_records["time"] >= t0) & (raw_records["time"] <= t_end + margin)
+        recs = raw_records[rec_mask]
+        dt = int(np.median(recs["dt"])) if len(recs) and "dt" in recs.dtype.names else int(peak["dt"])
+        x, y_top, y_bot, y_total = _io.build_array_waveforms(
+            recs, t0, t_end + margin, pmt_positions, t0=t0, dt_out=dt, to_pe=to_pe
+        )
+        artists = _plot_step_arrays(
+            ax_wf, x, [y_top, y_bot, y_total],
+            [top_color, bot_color, sum_color],
+            [f"Top PMT ({area_top:.0f} PE)", f"Bottom PMT ({area_bot:.0f} PE)", f"Total ({area_total:.0f} PE)"],
+            linewidths=[0.8, 0.8, 1.5],
+            alphas=[0.25, 0.25, 0.18],
+        )
+        artists_top = artists[f"top pmt ({area_top:.0f} pe)"]
+        artists_bot = artists[f"bottom pmt ({area_bot:.0f} pe)"]
+        artists_sum = artists[f"total ({area_total:.0f} pe)"]
+        ax_wf.set_ylabel("Intensity [PE/ns]")
+    else:
+        artists_top = plot_peak_waveform_model(peak_top, t0=t0, ax=ax_wf,
+            color=top_color, alpha_fill=0.3, linewidth=0.8, label=f"Top PMT ({area_top:.0f} PE)")
+        artists_bot = plot_peak_waveform_model(peak_bot, t0=t0, ax=ax_wf,
+            color=bot_color, alpha_fill=0.3, linewidth=0.8, label=f"Bottom PMT ({area_bot:.0f} PE)")
+        artists_sum = plot_peak_waveform_model(peak, t0=t0, ax=ax_wf,
+            color=sum_color, alpha_fill=0.4, linewidth=1.5, label=f"Total ({area_total:.0f} PE)")
+        ax_wf.set_ylabel("Model pulse [PE/ns]")
 
     ax_wf.set_title(f"{label} Peak  |  area={area_total:.0f} PE", fontweight="bold")
     ax_wf.set_xlabel("Time [s]")
@@ -1118,18 +1206,19 @@ def plot_peak_zoom(
     peak_area = float(peak["area"])
     if has_per_channel(np.array([peak])):
         area_pmt = peak["area_per_channel"]
+        pmt_suffix = " (peak true)"
     elif event_area_per_channel is not None:
         eac = event_area_per_channel
         if ptype == 1 and "s1_area_per_channel" in eac.dtype.names:
             main_s1 = float(event["s1_area"]) if "s1_area" in event.dtype.names else eac["s1_area_per_channel"].sum()
             scale = peak_area / main_s1 if main_s1 > 0 else 1.0
             area_pmt = eac["s1_area_per_channel"] * scale
-            pmt_suffix = f" (peak, scaled S1 x{scale:.3f})"
+            pmt_suffix = f" (estimated from main S1 x{scale:.3f})"
         elif ptype == 2 and "s2_area_per_channel" in eac.dtype.names:
             main_s2 = float(event["s2_area"]) if "s2_area" in event.dtype.names else eac["s2_area_per_channel"].sum()
             scale = peak_area / main_s2 if main_s2 > 0 else 1.0
             area_pmt = eac["s2_area_per_channel"] * scale
-            pmt_suffix = f" (peak, scaled S2 x{scale:.3f})"
+            pmt_suffix = f" (estimated from main S2 x{scale:.3f})"
         else:
             for key in ("s1_area_per_channel", "s2_area_per_channel",
                          "alt_s1_area_per_channel", "alt_s2_area_per_channel"):
