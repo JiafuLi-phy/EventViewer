@@ -1,4 +1,4 @@
-"""Matplotlib canvas with vertical-scroll page layout."""
+"""Matplotlib canvas with zoom percentage and scroll."""
 
 import matplotlib
 
@@ -19,13 +19,13 @@ except ImportError:
     from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT
 
 from .qt_compat import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QScrollArea, QPushButton,
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
 )
 from .qt_compat import Qt, Signal
 
 
 class EventCanvas(QWidget):
-    """Vertical-scroll canvas. Width auto-fits, pages stack top-to-bottom."""
+    """Canvas with zoom controls. No scroll area — clean rendering."""
 
     peak_clicked = Signal(int)
 
@@ -35,7 +35,6 @@ class EventCanvas(QWidget):
         self._zoom = 100
         self._fig = None
         self._canvas = None
-        self._scroll = None
         self._zoom_label = None
         self._hover_annot = None
         self._setup_ui()
@@ -45,22 +44,19 @@ class EventCanvas(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(2)
 
-        # ── Zoom bar ──
+        # Zoom bar
         bar = QHBoxLayout()
         bar.setSpacing(4)
         bar.addStretch()
-
-        btn_out = QPushButton("−")  # minus sign
+        btn_out = QPushButton("-")
         btn_out.setFixedSize(32, 28)
         btn_out.clicked.connect(lambda: self._set_zoom(self._zoom - 10))
         bar.addWidget(btn_out)
-
         self._zoom_label = QLabel("100%")
         self._zoom_label.setFixedWidth(42)
         self._zoom_label.setAlignment(Qt.AlignCenter)
         self._zoom_label.setStyleSheet("font-weight: bold; font-size: 12px;")
         bar.addWidget(self._zoom_label)
-
         btn_in = QPushButton("+")
         btn_in.setFixedSize(32, 28)
         btn_in.clicked.connect(lambda: self._set_zoom(self._zoom + 10))
@@ -68,21 +64,15 @@ class EventCanvas(QWidget):
         bar.addStretch()
         layout.addLayout(bar)
 
-        # ── Figure ──
-        self._fig = Figure(figsize=(14, 10), facecolor="white", dpi=self._base_dpi)
+        # Figure
+        self._fig = Figure(figsize=(14, 12), facecolor="white", dpi=self._base_dpi)
         self._canvas = FigureCanvasQTAgg(self._fig)
+        layout.addWidget(self._canvas)
 
+        # Events
         self._canvas.mpl_connect('button_press_event', self._on_click)
         self._canvas.mpl_connect('scroll_event', self._on_scroll)
         self._canvas.mpl_connect('motion_notify_event', self._on_hover)
-
-        # ── Vertical-only scroll area ──
-        self._scroll = QScrollArea()
-        self._scroll.setWidgetResizable(False)
-        self._scroll.setWidget(self._canvas)
-        self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self._scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        layout.addWidget(self._scroll)
 
     @property
     def figure(self):
@@ -101,7 +91,6 @@ class EventCanvas(QWidget):
             warnings.filterwarnings("ignore", message=".*not compatible with tight_layout.*")
             self._fig.tight_layout(pad=2.0, rect=[0, 0.02, 1, 0.95])
         self._canvas.draw_idle()
-        self._update_size()
 
     def set_message(self, text: str):
         self._fig.clear()
@@ -119,20 +108,11 @@ class EventCanvas(QWidget):
         dpi = int(self._base_dpi * pct / 100)
         self._fig.set_dpi(dpi)
         self._zoom_label.setText(f"{pct}%")
-        self._update_size()
         self._canvas.draw_idle()
-
-    def _update_size(self):
-        w_in, h_in = self._fig.get_size_inches()
-        dpi = self._fig.get_dpi()
-        pw, ph = int(w_in * dpi), int(h_in * dpi)
-        self._canvas.setMinimumSize(pw, ph)
-        self._canvas.resize(pw, ph)
 
     def _on_click(self, event):
         if event.dblclick or event.inaxes is None:
             return
-        # Check legend click for toggle
         self._check_legend_click(event)
         regions = getattr(event.inaxes, '_peak_regions', None)
         if not regions:
@@ -153,7 +133,6 @@ class EventCanvas(QWidget):
             self.peak_clicked.emit(best['index'])
 
     def _check_legend_click(self, event):
-        """Toggle waveform layers when legend label is clicked."""
         state = getattr(event.inaxes, '_legend_state', None)
         artists = getattr(event.inaxes, '_legend_artists', None)
         if state is None or artists is None:
@@ -167,14 +146,12 @@ class EventCanvas(QWidget):
                 for key in state:
                     if key in label:
                         state[key] = not state[key]
-                        vis = state[key]
                         art_obj = artists.get(key)
                         if art_obj is not None:
                             if isinstance(art_obj, list):
-                                for a in art_obj:
-                                    a.set_visible(vis)
+                                for a in art_obj: a.set_visible(state[key])
                             else:
-                                art_obj.set_visible(vis)
+                                art_obj.set_visible(state[key])
                         self._canvas.draw_idle()
                         return
 
@@ -196,7 +173,6 @@ class EventCanvas(QWidget):
             self._canvas.draw_idle()
 
     def _on_hover(self, event):
-        """Show PMT ID on hover."""
         if event.inaxes is None:
             if self._hover_annot is not None:
                 self._hover_annot.remove()
