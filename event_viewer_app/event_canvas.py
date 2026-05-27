@@ -43,7 +43,6 @@ class EventCanvas(QWidget):
         self._canvas = None
         self._toolbar = None
         self._click_cid = None
-        self._resizing = False
         self._setup_ui()
 
     def _setup_ui(self):
@@ -51,7 +50,7 @@ class EventCanvas(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(2)
 
-        self._fig = Figure(figsize=(16, 12), facecolor="white")
+        self._fig = Figure(figsize=(18, 14), facecolor="white", dpi=80)
         self._canvas = FigureCanvasQTAgg(self._fig)
         self._canvas.setSizePolicy(
             QWidget().sizePolicy().horizontalPolicy().Expanding,
@@ -77,19 +76,6 @@ class EventCanvas(QWidget):
         if self._toolbar is not None:
             layout.addWidget(self._toolbar)
         layout.addWidget(self._canvas)
-
-    def resizeEvent(self, event):
-        """Scale figure to match widget size."""
-        super().resizeEvent(event)
-        if self._resizing or self._canvas is None:
-            return
-        w = self._canvas.width()
-        h = self._canvas.height()
-        if w > 200 and h > 200:
-            self._resizing = True
-            dpi = self._fig.get_dpi()
-            self._fig.set_size_inches(w / dpi, h / dpi)
-            self._resizing = False
 
     @property
     def figure(self) -> Figure:
