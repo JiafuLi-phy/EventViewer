@@ -1115,16 +1115,21 @@ def plot_peak_zoom(
     area_pmt = np.zeros(len(to_pe))
     pmt_suffix = ""
 
+    peak_area = float(peak["area"])
     if has_per_channel(np.array([peak])):
         area_pmt = peak["area_per_channel"]
     elif event_area_per_channel is not None:
         eac = event_area_per_channel
         if ptype == 1 and "s1_area_per_channel" in eac.dtype.names:
-            area_pmt = eac["s1_area_per_channel"]
-            pmt_suffix = " (main S1)"
+            main_s1 = float(event["s1_area"]) if "s1_area" in event.dtype.names else eac["s1_area_per_channel"].sum()
+            scale = peak_area / main_s1 if main_s1 > 0 else 1.0
+            area_pmt = eac["s1_area_per_channel"] * scale
+            pmt_suffix = f" (peak, scaled S1 x{scale:.3f})"
         elif ptype == 2 and "s2_area_per_channel" in eac.dtype.names:
-            area_pmt = eac["s2_area_per_channel"]
-            pmt_suffix = " (main S2)"
+            main_s2 = float(event["s2_area"]) if "s2_area" in event.dtype.names else eac["s2_area_per_channel"].sum()
+            scale = peak_area / main_s2 if main_s2 > 0 else 1.0
+            area_pmt = eac["s2_area_per_channel"] * scale
+            pmt_suffix = f" (peak, scaled S2 x{scale:.3f})"
         else:
             for key in ("s1_area_per_channel", "s2_area_per_channel",
                          "alt_s1_area_per_channel", "alt_s2_area_per_channel"):
