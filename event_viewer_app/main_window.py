@@ -594,42 +594,29 @@ class MainWindow(QMainWindow):
 
     # ── export ────────────────────────────────────────────────────
 
-    def _on_export_pdf(self):
+    def _do_export(self, ext):
         if self._current_event is None:
             self._status_label.setText("Select an event first")
             return
         run_id = self._dm.run_id or "?"
         suffix = f"_peak{self._selected_peak_idx}" if self._selected_peak_idx is not None else ""
-        default = os.path.join(os.path.expanduser("~"), "Desktop",
-                               f"run{run_id}_event_{self._current_event}{suffix}.pdf")
+        fname = f"run{run_id}_event_{self._current_event}{suffix}.{ext}"
+        # Try dialog first, fallback to Desktop
         path, _ = QFileDialog.getSaveFileName(
-            self, "Export PDF", default,
-            "PDF Files (*.pdf)"
+            self, f"Export {ext.upper()}", fname,
+            f"{ext.upper()} Files (*.{ext})"
         )
         if not path:
-            return
+            # Fallback: save to Desktop
+            path = os.path.join(os.path.expanduser("~"), "Desktop", fname)
         try:
             self._canvas.figure.savefig(path, dpi=200, bbox_inches="tight")
             self._status_label.setText(f"Exported → {os.path.basename(path)}")
         except Exception as e:
             QMessageBox.critical(self, "Export Error", str(e))
 
+    def _on_export_pdf(self):
+        self._do_export("pdf")
+
     def _on_export_png(self):
-        if self._current_event is None:
-            self._status_label.setText("Select an event first")
-            return
-        run_id = self._dm.run_id or "?"
-        suffix = f"_peak{self._selected_peak_idx}" if self._selected_peak_idx is not None else ""
-        default = os.path.join(os.path.expanduser("~"), "Desktop",
-                               f"run{run_id}_event_{self._current_event}{suffix}.png")
-        path, _ = QFileDialog.getSaveFileName(
-            self, "Export PNG", default,
-            "PNG Files (*.png)"
-        )
-        if not path:
-            return
-        try:
-            self._canvas.figure.savefig(path, dpi=200, bbox_inches="tight")
-            self._status_label.setText(f"Exported → {os.path.basename(path)}")
-        except Exception as e:
-            QMessageBox.critical(self, "Export Error", str(e))
+        self._do_export("png")
