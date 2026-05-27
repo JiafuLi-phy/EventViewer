@@ -16,6 +16,8 @@ echo "=== Building ==="
   --hidden-import PySide6.QtGui \
   --hidden-import PySide6.QtWidgets \
   --hidden-import matplotlib.backends.backend_qtagg \
+  --hidden-import matplotlib.backends.backend_pdf \
+  --hidden-import matplotlib.backends.backend_agg \
   --collect-submodules numpy \
   --collect-data matplotlib \
   --exclude-module tkinter \
@@ -25,6 +27,13 @@ echo "=== Building ==="
   --distpath dist \
   --workpath /tmp/pyinstaller_mac \
   run_app.py
+
+echo "=== Setting bundle version ==="
+PLIST="dist/XENONnT-EventViewer.app/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString 2.0.0" "$PLIST" 2>/dev/null || \
+  /usr/libexec/PlistBuddy -c "Add :CFBundleShortVersionString string 2.0.0" "$PLIST"
+/usr/libexec/PlistBuddy -c "Set :CFBundleVersion 2.0.0" "$PLIST" 2>/dev/null || \
+  /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string 2.0.0" "$PLIST"
 
 echo "=== Deploying ==="
 rm -rf "/Applications/XENONnT-EventViewer.app"
