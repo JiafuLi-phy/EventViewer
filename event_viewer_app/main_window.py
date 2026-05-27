@@ -197,13 +197,11 @@ class MainWindow(QMainWindow):
         # Navigate menu
         nav_menu = menu.addMenu("&Navigate")
 
-        prev_action = QAction("Previous Event", self)
-        prev_action.setShortcut(QKeySequence("Up"))
+        prev_action = QAction("Previous Event (←)", self)
         prev_action.triggered.connect(lambda: self._browser.navigate(-1))
         nav_menu.addAction(prev_action)
 
-        next_action = QAction("Next Event", self)
-        next_action.setShortcut(QKeySequence("Down"))
+        next_action = QAction("Next Event (→)", self)
         next_action.triggered.connect(lambda: self._browser.navigate(1))
         nav_menu.addAction(next_action)
 
@@ -254,6 +252,12 @@ class MainWindow(QMainWindow):
         """Additional keyboard shortcuts not bound to menu actions."""
         QShortcut(QKeySequence("Escape"), self).activated.connect(
             self._clear_peak_selection
+        )
+        QShortcut(QKeySequence("Left"), self).activated.connect(
+            lambda: self._browser.navigate(-1)
+        )
+        QShortcut(QKeySequence("Right"), self).activated.connect(
+            lambda: self._browser.navigate(1)
         )
 
     # ── slots ─────────────────────────────────────────────────────
