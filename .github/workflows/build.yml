@@ -61,7 +61,6 @@ jobs:
       - name: Build
         run: |
           pyinstaller EventViewer.spec --distpath dist --workpath $env:TEMP\pyinstaller_win
-          Rename-Item -Path "dist\XENONnT-EventViewer" -NewName "XENONnT-EventViewer.exe"
 
       - name: Package release
         run: |
