@@ -93,12 +93,30 @@ class EventCanvas(QWidget):
 
     def clear(self):
         if self._hover_annot:
-            try:
-                self._hover_annot.remove()
-            except Exception:
-                pass
+            try: self._hover_annot.remove()
+            except Exception: pass
             self._hover_annot = None
-        self._fig.clf()
+        # Replace entire figure to eliminate ghosting
+        old_canvas = self._canvas
+        self._fig = Figure(figsize=(16, 10), facecolor="white", dpi=self._base_dpi)
+        self._canvas = FigureCanvasQTAgg(self._fig)
+        self._canvas.setStyleSheet("background: white;")
+        self._canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        # Reconnect events
+        self._canvas.mpl_connect('button_press_event', self._on_click)
+        self._canvas.mpl_connect('scroll_event', self._on_scroll)
+        self._canvas.mpl_connect('motion_notify_event', self._on_hover)
+        # Swap in layout
+        layout = self.layout()
+        if layout:
+            idx = layout.indexOf(old_canvas)
+            if idx >= 0:
+                layout.insertWidget(idx, self._canvas)
+            else:
+                layout.addWidget(self._canvas)
+        old_canvas.setParent(None)
+        old_canvas.deleteLater()
+        self._update_canvas_size()
 
     def draw(self):
         self._update_canvas_size()
