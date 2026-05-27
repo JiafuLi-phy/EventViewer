@@ -600,15 +600,13 @@ class MainWindow(QMainWindow):
             return
         run_id = self._dm.run_id or "?"
         suffix = f"_peak{self._selected_peak_idx}" if self._selected_peak_idx is not None else ""
-        fname = f"run{run_id}_event_{self._current_event}{suffix}.{ext}"
-        # Try dialog first, fallback to Desktop
-        path, _ = QFileDialog.getSaveFileName(
-            self, f"Export {ext.upper()}", fname,
-            f"{ext.upper()} Files (*.{ext})"
-        )
-        if not path:
-            # Fallback: save to Desktop
-            path = os.path.join(os.path.expanduser("~"), "Desktop", fname)
+        desktop = os.path.expanduser("~/Desktop")
+        base = f"run{run_id}_event_{self._current_event}{suffix}"
+        # Find unique filename
+        for i in range(100):
+            path = os.path.join(desktop, f"{base}_{i}.{ext}")
+            if not os.path.exists(path):
+                break
         try:
             self._canvas.figure.savefig(path, dpi=200, bbox_inches="tight")
             self._status_label.setText(f"Exported → {os.path.basename(path)}")
