@@ -9,7 +9,8 @@ from .qt_compat import (
     QMainWindow, QSplitter, QStatusBar, QMenuBar, QMenu,
     QFileDialog, QMessageBox, QLabel, QInputDialog,
     QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView,
-    QWidget, QVBoxLayout, QShortcut,
+    QWidget, QVBoxLayout, QShortcut, QComboBox,
+    QGroupBox,
 )
 from .qt_compat import Qt
 from .qt_compat import QAction, QKeySequence
@@ -255,6 +256,14 @@ class MainWindow(QMainWindow):
         left_layout.setContentsMargins(0, 0, 0, 0)
         left_layout.setSpacing(4)
 
+        # Run Selector
+        run_group = QGroupBox("Run Selector")
+        run_layout = QVBoxLayout(run_group)
+        self._run_combo = QComboBox()
+        self._run_combo.currentIndexChanged.connect(self._on_run_selected)
+        run_layout.addWidget(self._run_combo)
+        left_layout.addWidget(run_group)
+
         self._browser = EventBrowser(self._dm)
         self._browser.setMaximumWidth(500)
         self._browser.setMinimumWidth(220)
@@ -268,6 +277,9 @@ class MainWindow(QMainWindow):
 
         left_layout.addWidget(self._browser, 3)
         left_layout.addWidget(self._peak_list, 2)
+
+        # Populate run list
+        self._scan_npz_files()
 
         splitter.addWidget(left_panel)
 
@@ -301,9 +313,90 @@ class MainWindow(QMainWindow):
             lambda: self._browser.navigate(1)
         )
 
+    # ── Run Selector ─────────────────────────────────────────────
+
+    def _scan_npz_files(self):
+        """Scan for .npz files in common locations and populate the run combo."""
+        import glob
+        search_dirs = [
+            os.path.dirname(os.path.abspath(__file__)),  # event_viewer_app/
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'),  # project root
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'scripts', 'output'),
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'dali_probe'),
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data'),
+            os.getcwd(),
+        ]
+        if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+            search_dirs.insert(0, sys._MEIPASS)
+
+        self._run_combo.blockSignals(True)
+        self._run_combo.clear()
+        self._run_paths = {}
+
+        seen = set()
+        for d in search_dirs:
+            if not os.path.isdir(d):
+                continue
+            try:
+                for f in sorted(os.listdir(d)):
+                    if f.endswith('.npz') and 'events' in f.lower():
+                        full = os.path.join(d, f)
+                        if full in seen:
+                            continue
+                        seen.add(full)
+                        # Try to read run_id and event count
+                        try:
+                            b = np.load(full, allow_pickle=True)
+                            run_id = str(b.get('run_id', '?'))
+                            n_ev = len(b['events']) if 'events' in b else '?'
+                            label = f"Run {run_id} ({n_ev} events)  [{os.path.basename(f)}]"
+                        except Exception:
+                            label = os.path.basename(f)
+                        self._run_paths[label] = full
+                        self._run_combo.addItem(label)
+            except OSError:
+                pass
+
+        self._run_combo.blockSignals(False)
+
+    def _on_run_selected(self, idx):
+        if idx < 0:
+            return
+        label = self._run_combo.currentText()
+        path = self._run_paths.get(label)
+        if not path or not os.path.isfile(path):
+            return
+        self._view_mode = "overview"
+        self._selected_peak_idx = None
+        try:
+            n = self._dm.open_npz_bundle(path)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to open:\n{e}")
+            return
+        self._browser._on_data_loaded(n, f"Run: {os.path.basename(path)}")
+        self._status_label.setText(f"Loaded {n} events from {os.path.basename(path)}")
+
     # ── slots ─────────────────────────────────────────────────────
 
     def _on_open_bundle(self):
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Open Event Bundle", "",
+            "NPZ Bundles (*.npz);;All Files (*)"
+        )
+        if not path:
+            return
+        try:
+            n = self._dm.open_npz_bundle(path)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to open bundle:\n{e}")
+            return
+        self._browser._on_data_loaded(n, f"Bundle: {os.path.basename(path)}")
+        self._status_label.setText(f"Loaded {n} events from {os.path.basename(path)}")
+        # Also add to run combo if not already there
+        label = f"Run {self._dm.run_id} ({n} events)  [{os.path.basename(path)}]"
+        if label not in self._run_paths:
+            self._run_paths[label] = path
+            self._run_combo.addItem(label)
         path, _ = QFileDialog.getOpenFileName(
             self, "Open Event Bundle", "",
             "NPZ Bundles (*.npz);;All Files (*)"
@@ -506,26 +599,40 @@ class MainWindow(QMainWindow):
 
     def _on_export_pdf(self):
         if self._current_event is None:
+            self._status_label.setText("Select an event first")
             return
+        run_id = self._dm.run_id or "?"
         suffix = f"_peak{self._selected_peak_idx}" if self._selected_peak_idx is not None else ""
+        default = os.path.join(os.path.expanduser("~"), "Desktop",
+                               f"run{run_id}_event_{self._current_event}{suffix}.pdf")
         path, _ = QFileDialog.getSaveFileName(
-            self, "Export PDF", f"event_{self._current_event}{suffix}.pdf",
+            self, "Export PDF", default,
             "PDF Files (*.pdf)"
         )
         if not path:
             return
-        self._canvas.figure.savefig(path, dpi=300, bbox_inches="tight")
-        self._status_label.setText(f"Exported → {path}")
+        try:
+            self._canvas.figure.savefig(path, dpi=200, bbox_inches="tight")
+            self._status_label.setText(f"Exported → {os.path.basename(path)}")
+        except Exception as e:
+            QMessageBox.critical(self, "Export Error", str(e))
 
     def _on_export_png(self):
         if self._current_event is None:
+            self._status_label.setText("Select an event first")
             return
+        run_id = self._dm.run_id or "?"
         suffix = f"_peak{self._selected_peak_idx}" if self._selected_peak_idx is not None else ""
+        default = os.path.join(os.path.expanduser("~"), "Desktop",
+                               f"run{run_id}_event_{self._current_event}{suffix}.png")
         path, _ = QFileDialog.getSaveFileName(
-            self, "Export PNG", f"event_{self._current_event}{suffix}.png",
+            self, "Export PNG", default,
             "PNG Files (*.png)"
         )
         if not path:
             return
-        self._canvas.figure.savefig(path, dpi=300, bbox_inches="tight")
-        self._status_label.setText(f"Exported → {path}")
+        try:
+            self._canvas.figure.savefig(path, dpi=200, bbox_inches="tight")
+            self._status_label.setText(f"Exported → {os.path.basename(path)}")
+        except Exception as e:
+            QMessageBox.critical(self, "Export Error", str(e))

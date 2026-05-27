@@ -20,14 +20,13 @@ except ImportError:
     from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT
 
 from .qt_compat import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QScrollArea,
-    QSizePolicy,
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QSizePolicy,
 )
 from .qt_compat import Qt, Signal
 
 
 class EventCanvas(QWidget):
-    """Scrollable matplotlib page with mouse-wheel axes zoom."""
+    """Matplotlib page with mouse-wheel axes zoom."""
 
     peak_clicked = Signal(int)
 
@@ -37,7 +36,6 @@ class EventCanvas(QWidget):
         self._canvas = None
         self._toolbar = None
         self._hover_annot = None
-        self._scroll = None
         self._zoom_label = None
         self._page_zoom = 100
         self._base_dpi = 90
@@ -48,10 +46,10 @@ class EventCanvas(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(2)
 
-        self._fig = Figure(figsize=(12, 16), facecolor="white", dpi=self._base_dpi)
+        self._fig = Figure(figsize=(16, 10), facecolor="white", dpi=self._base_dpi)
         self._canvas = FigureCanvasQTAgg(self._fig)
         self._canvas.setStyleSheet("background: white;")
-        self._canvas.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self._canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
         controls = QHBoxLayout()
         controls.setContentsMargins(0, 0, 0, 0)
@@ -78,12 +76,7 @@ class EventCanvas(QWidget):
         controls.addStretch()
         layout.addLayout(controls)
 
-        self._scroll = QScrollArea()
-        self._scroll.setWidget(self._canvas)
-        self._scroll.setWidgetResizable(False)
-        self._scroll.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
-        self._scroll.setStyleSheet("QScrollArea { background: #e8e8e8; border: 0; }")
-        layout.addWidget(self._scroll)
+        layout.addWidget(self._canvas, 1)
 
         self._canvas.mpl_connect('button_press_event', self._on_click)
         self._canvas.mpl_connect('scroll_event', self._on_scroll)
@@ -136,12 +129,8 @@ class EventCanvas(QWidget):
         self._canvas.draw()
 
     def _update_canvas_size(self):
-        w_in, h_in = self._fig.get_size_inches()
         scale = self._page_zoom / 100.0
-        self._canvas.setFixedSize(
-            max(1, int(w_in * self._base_dpi * scale)),
-            max(1, int(h_in * self._base_dpi * scale)),
-        )
+        self._fig.set_dpi(self._base_dpi * scale)
 
     def _on_click(self, event):
         if event.dblclick or event.inaxes is None:
