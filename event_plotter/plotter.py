@@ -553,9 +553,6 @@ def plot_pmt_hit_pattern(
         )
     )
 
-    ax.set_aspect("equal")
-    ax.set_xlim(-r_bound * 1.06, r_bound * 1.06)
-    ax.set_ylim(-r_bound * 1.06, r_bound * 1.06)
     ax.set_xlabel("x [cm]")
     ax.set_ylabel("y [cm]")
     ax.set_title(array_name.capitalize(), fontsize=style.plt.rcParams["font.size"])
@@ -563,6 +560,11 @@ def plot_pmt_hit_pattern(
     if show_colorbar:
         cbar = ax.figure.colorbar(sc, ax=ax, fraction=0.046, pad=0.04)
         cbar.set_label(label or "Area [PE]", fontsize=style.plt.rcParams["font.size"] - 1)
+
+    # Set aspect and limits AFTER colorbar to avoid distortion
+    ax.set_aspect("equal")
+    ax.set_xlim(-r_bound * 1.06, r_bound * 1.06)
+    ax.set_ylim(-r_bound * 1.06, r_bound * 1.06)
 
     return ax
 
@@ -648,7 +650,7 @@ def plot_event_full(
         s2_hp_kwargs = {}
 
     # default hit-pattern options — vmax computed per area array below
-    hp_defaults = dict(log_scale=False, marker_size=50, show_colorbar=True, label="Area [PE]")
+    hp_defaults = dict(log_scale=False, marker_size=25, show_colorbar=True, label="Area [PE]")
     for d in (s1_hp_kwargs, s2_hp_kwargs):
         for k, v in hp_defaults.items():
             d.setdefault(k, v)
@@ -667,7 +669,7 @@ def plot_event_full(
     gs_main = gridspec.GridSpec(
         4, 2, figure=fig,
         height_ratios=[1.0, 1.0, 1.25, 1.25],
-        hspace=0.65, wspace=0.40,
+        hspace=0.85, wspace=0.40,
     )
 
     # row 0 (top): S1 zoom wf, S2 zoom wf, S1 top PMT, S1 bottom PMT
@@ -1244,7 +1246,7 @@ def plot_peak_zoom(
         for ax_pmt, arr_name in [(ax_pmt_top, "top"), (ax_pmt_bot, "bottom")]:
             plot_pmt_hit_pattern(area, pmt_positions, to_pe,
                                  array_name=arr_name, ax=ax_pmt, cmap="plasma",
-                                 vmin=0, marker_size=50,
+                                 vmin=0, marker_size=30,
                                  show_colorbar=True, label=pattern_label)
             ax_pmt.set_title(f"{label} {arr_name.capitalize()} PMT{pmt_title_suffix}")
 
