@@ -672,12 +672,10 @@ def plot_event_full(
 
     t0_ev = int(event["time"])
     if len(peaks):
-        # 3-layer waveform: top+bottom+total
-        frac_top = 0.5
-        # Build approximate top/bottom waveforms by scaling model pulses
-        _draw_3layer_waveform(peaks, t0_ev, ax_wf, show_largest)
-    ax_wf.set_title("Event waveform  (top + bottom = total)", fontsize=_rsize + 1, fontweight="bold")
-    ax_wf.set_xlabel("Time [s]")
+        plot_peaks(peaks, t0=t0_ev, ax=ax_wf,
+                   show_largest=show_largest, alpha_fill=0.2, linewidth=0.5,
+                   highlight_idx=highlight_peak_idx)
+    ax_wf.set_title("Event waveform", fontsize=_rsize + 1, fontweight="bold")
 
     # ── Row 2: PMT patterns (event total) ──
     if event_area_per_channel is not None:
