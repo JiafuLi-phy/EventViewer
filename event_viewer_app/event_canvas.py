@@ -99,7 +99,6 @@ class EventCanvas(QWidget):
                 pass
             self._hover_annot = None
         self._fig.clf()
-        self._canvas.draw()
 
     def draw(self):
         self._update_canvas_size()

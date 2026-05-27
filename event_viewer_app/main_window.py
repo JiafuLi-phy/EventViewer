@@ -317,13 +317,10 @@ class MainWindow(QMainWindow):
 
     def _scan_npz_files(self):
         """Scan for .npz files in common locations and populate the run combo."""
-        import glob
         search_dirs = [
-            os.path.dirname(os.path.abspath(__file__)),  # event_viewer_app/
-            os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'),  # project root
             os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'scripts', 'output'),
             os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'dali_probe'),
-            os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data'),
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'),
             os.getcwd(),
         ]
         if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
@@ -339,21 +336,21 @@ class MainWindow(QMainWindow):
                 continue
             try:
                 for f in sorted(os.listdir(d)):
-                    if f.endswith('.npz') and 'events' in f.lower():
-                        full = os.path.join(d, f)
-                        if full in seen:
-                            continue
-                        seen.add(full)
-                        # Try to read run_id and event count
-                        try:
-                            b = np.load(full, allow_pickle=True)
-                            run_id = str(b.get('run_id', '?'))
-                            n_ev = len(b['events']) if 'events' in b else '?'
-                            label = f"Run {run_id} ({n_ev} events)  [{os.path.basename(f)}]"
-                        except Exception:
-                            label = os.path.basename(f)
-                        self._run_paths[label] = full
-                        self._run_combo.addItem(label)
+                    if not f.endswith('.npz'):
+                        continue
+                    full = os.path.join(d, f)
+                    if full in seen:
+                        continue
+                    seen.add(full)
+                    try:
+                        b = np.load(full, allow_pickle=True)
+                        run_id = str(b.get('run_id', '?'))
+                        n_ev = len(b['events']) if 'events' in b else '?'
+                        label = f"Run {run_id} ({n_ev} ev)  [{os.path.basename(f)}]"
+                    except Exception:
+                        label = os.path.basename(f)
+                    self._run_paths[label] = full
+                    self._run_combo.addItem(label)
             except OSError:
                 pass
 
