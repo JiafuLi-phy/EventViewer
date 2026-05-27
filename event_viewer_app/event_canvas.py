@@ -82,10 +82,13 @@ class EventCanvas(QWidget):
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", message=".*not compatible with tight_layout.*")
             self._fig.tight_layout(pad=2.0, rect=[0, 0.02, 1, 0.93])
-        # Tell canvas its real size so scroll area knows
+        # Force canvas to its natural size so scrollbars appear
         w_in, h_in = self._fig.get_size_inches()
         dpi = self._fig.get_dpi()
-        self._canvas.resize(int(w_in * dpi), int(h_in * dpi))
+        pw, ph = int(w_in * dpi), int(h_in * dpi)
+        self._canvas.setMinimumSize(pw, ph)
+        self._canvas.setMaximumSize(pw, ph)
+        self._canvas.resize(pw, ph)
         self._canvas.draw_idle()
 
     def set_message(self, text: str):
