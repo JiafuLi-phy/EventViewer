@@ -1,168 +1,95 @@
-# Handoff to Codex
+# Handoff to Codex — 2026-05-28
 
-## What I Did While You Were Paused
+## Completed Changes (today)
 
-1. **Committed your changes** (commit `0a9bda4`) — all 9 files saved, 698 insertions
-2. **Verified 50 peaks** across 10 events — area values match between peak list and rendered waveform, 0 errors
-3. **Rebuilt the .app** — `scripts/build_mac.sh` to `/Applications/XENONnT-EventViewer.app`
-4. **Ran DALI/Midway3 raw data probe** — see `dali_probe/report.md` for full results
+### UI / Layout
+- [x] Figure height 12→18in, 3-row GridSpec (linear + log + PMT)
+- [x] Log-scale event waveform (symlog, bottom=1e-3, below linear)
+- [x] PMT marker sizes: event overview 40, peak zoom 80, zoom window 100
+- [x] Legend font 16pt, positioned (1.04, 1.10), uses rcParams correctly
+- [x] Legend border removed
+- [x] Interactive legend: click layer name → show only that layer, click again → show all
+- [x] Left panel max width 500, stretch factor 1:3, draggable
+- [x] Peak list sort: Main S1 → Main S2 → S1s → S2s → unknown (within group by area)
+- [x] Peak list units: ns→μs (Width, Rise, Time)
+- [x] Main S1/S2 displayed as bold "Main S1"/"Main S2"
+- [x] Run Selector dropdown + Browse button
+- [x] Run Selector auto-scans dali_probe/, scripts/output/, ~/Desktop/EventViewer/dali_probe
+- [x] Run Selector refreshes on File→Open
 
-## Current State
+### Rendering
+- [x] 3-pass drawing: all Top first → all Bottom → all Total (z-order fix)
+- [x] Total color = red (#F44336) everywhere (model + real data paths)
+- [x] `p.copy()` instead of `np.array(p, copy=True)` for numpy void scalars (shared memory bug)
+- [x] `fig.clf()` → full Figure+Canvas replacement (ghosting fix)
+- [x] `tighten_ylim` checks both lines and collections (fix_between data)
+- [x] y-axis pad_frac 0.05→0.10
+- [x] Total alpha 0.55→0.30 (lighter fill)
+- [x] Top/Bottom alpha 0.20→0.08 (very faint background)
+- [x] Total linewidth 1.5x (boldest)
+- [x] 3-layer legend now works for model pulse path (was missing _legend_state)
+- [x] x-axis: seconds→μs, correct ns/1000 conversion
+- [x] xlabel "Time [μs]" on all waveform axes
+- [x] MAX_CLICK_DIST 0.0005s→500μs for μs x-axis
 
-- dist rebuilt and deployed to `/Applications/XENONnT-EventViewer.app`
-- DALI raw probe complete: **023756 has NO TPC raw_records on Midway3** (only aqmon monitor)
-- `straxen.contexts.xenonnt()` context can't find legacy runs (023756, 024399) — they're not in RunDB
-- Current `io.py`'s `strax.load_file()` approach is correct for legacy data
+### Features
+- [x] PMT pattern click → standalone zoomed figure (larger dots, hover shows PMT ID)
+- [x] PMT ID hover on zoomed figure (standalone canvas with motion_notify_event)
 
-## DALI Probe Key Finding
+### Data
+- [x] 023756 (50ev, model) — original bundle
+- [x] 043864 (200ev, real peaks, 9MB) — from DALI
+- [x] 043864 (30ev, real peaks) — new extraction
+- [x] 044116 (20ev + 30ev, real peaks) — new extraction
+- [x] 044165 (20ev, real peaks) — new extraction
+- [x] 044225 (20ev, real peaks) — new extraction
+- [x] 044311 (20ev, real peaks) — new extraction
+- [x] 044834 (20ev, real peaks) — new extraction
+- [x] DALI batch extraction script (dali_probe/batch_extract.sh)
+- [x] Total: 6 runs, 430 events, all with real waveform data
 
-The NPZ bundle for run 023756 cannot have real TPC waveforms because:
-- Midway3 `/project/` processed dirs only have `raw_records_aqmon` for 023756
-- straxen contexts (`xenonnt()`) don't register this legacy run
+### Build
+- [x] Info.plist version 2.0.1 (PlistBuddy injection in build_mac.sh)
+- [x] backend_pdf, backend_agg added to PyInstaller hidden imports
+- [x] Export Ctrl+S → Desktop (no dialog)
+- [x] Toolbar save button fixed (toolbar.canvas updated after clear())
+- [x] Old versions cleaned from Desktop and Applications
 
-**RunDB query result**: Queried all 73,925 runs in production RunDB. **Zero science runs**
-have raw_records or records stored locally on Midway3. Raw waveform data lives on
-Amsterdam Stoomboot, accessible only via `rucio` download or on DALI compute nodes.
+### Bugs Fixed (today, ~40 commits)
+1. numpy void scalar copy bug (shared memory)
+2. Total=red missing in real data event overview
+3. Interactive legend missing for model pulse path
+4. ns→μs wrong conversion (/1e6→/1000)
+5. MAX_CLICK_DIST not updated for μs units
+6. PMT marker too large for taller figure
+7. Syntax errors from inline comments in replace_all
+8. Legend fontsize overridden by explicit fontsize parameter
 
-###  New: Real peaks data FOUND on DALI
+## Unresolved Issues
 
-**DALI `/dali/lgrandi/xenonnt/processed/` has peaks with real waveform data!**
+### High Priority
+- [ ] QScrollArea stability not fully verified — colored edge artifacts risk
+- [ ] Strax mode UI freeze (synchronous loading, no progress bar)
+- [ ] Run Selector in .app only finds bundled NPZ, not external files
+- [ ] macOS Gatekeeper "unidentified developer" warning on first launch
 
-```
-043864-peaks-5i3zhnt5vx  ← example run with real peaks
-```
+### Medium Priority
+- [ ] Event overview 3-layer is dense/cluttered for runs with many peaks
+- [ ] Peak zoom PMT pattern shows scaled EAC for model data (no real per-peak apc)
+- [ ] No loading indicator when switching runs/events
+- [ ] Export QFileDialog may not open in PyInstaller .app (macOS z-order)
+- [ ] Windows/Linux packages need CI build (push v* tag)
 
-Peaks dtype includes:
-- `data`: 200-sample real waveform (PE/sample, NOT model-generated)
-- `data_top`: top PMT array waveform (200 samples)  
-- `area_per_channel`: per-PMT area (494 values) — real hit pattern, no scaling needed
+### Low Priority
+- [ ] print() debug leftovers in scripts/ (cosmetic)
+- [ ] Daq data source panel is redundant (Run Selector + Browse covers it)
+- [ ] Peak list time column shows absolute epoch time (should be relative to event start)
+- [ ] 044834 NPZ transfer was unreliable (SCP truncation)
+- [ ] TeX docs not included in app bundle
 
-Also on DALI: 280+ runs with peaklets (same structure, single-PMT granularity).
-
-###  Key Takeaway
-
-| Data Type | Midway3 | DALI |
-|-----------|:-------:|:----:|
-| peak_basics | 2193 runs | ? |
-| peaklets (real waveform) | 280 runs | 280+ runs |
-| peaks (real waveform) | 0 | YES (043864 etc.) |
-
-**For the EventViewer with real waveforms:**
-1. SSH to dali, load peaks from run 043864
-2. Extract `data`, `data_top`, `area_per_channel`  
-3. Compute `data_bottom = data - data_top` for 3-layer waveform
-4. Bundle into new NPZ format for EventViewer
-5. This eliminates ALL model waveform code — everything becomes real data
-
-## TODO for Codex
-
-### Priority 1: Real peaks NPZ bundle
-1. Write `dali_probe/extract_peaks_bundle.py` — standalone script, doesn't touch existing code
-2. SSH to dali, run it on 043864 (has peaks + event_info)
-3. Output: `events_run_043864.npz` with real `data`, `data_top`, `area_per_channel`
-4. Verify: load bundle, render event, confirm waveforms are NOT model-generated
-
-### Priority 2: Update EventViewer for real data
-5. `data_manager.py`: detect if bundle has `data`/`data_top` → set flag
-6. `plotter.py`: when real data available, use `data`/`data_top` for 3-layer waveform instead of model pulse
-7. `plotter.py`: when real data available, use `area_per_channel` for PMT pattern directly (no EAC scaling)
-
-### Priority 3: QScrollArea stability
-8. Test rapid scrolling 20+ times across 5 different events
-9. If garbled edges appear: remove QScrollArea, use plain canvas + toolbar zoom
-
-## Debug Reports (NEW)
-
-Complete debug suite in `debug_reports/`:
-- [00_SUMMARY.md](debug_reports/00_SUMMARY.md) — overview + fix priority
-- [01_static_analysis.txt](debug_reports/01_static_analysis.txt) — 11 files analyzed
-- [02_data_pipeline_tests.txt](debug_reports/02_data_pipeline_tests.txt) — 9 tests, all pass
-- [03_rendering_edge_cases.txt](debug_reports/03_rendering_edge_cases.txt) — 8 tests, all pass
-- [04_ui_simulation_tests.txt](debug_reports/04_ui_simulation_tests.txt) — 8 tests, all pass
-
-## Key Issues to Watch
-
-### 1. QScrollArea + Fixed size (your event_canvas.py)
-You re-introduced QScrollArea with `setFixedSize` and `setWidgetResizable(False)`. 
-This combination has caused garbled rendering 3 times before. The user specifically reported 
-"colored dot artifacts at edges" when scrolling.
-
-**To test**: Open app, select an event, scroll wheel rapidly 20+ times on the waveform.
-Switch between 5 events. If any colored dots or stale content appears at edges, 
-this approach needs rethinking.
-
-### 2. DALI raw data probe needs re-running
-The probe you started on DALI was loading a raw_records chunk from run 043572 
-(or 044281). It was stuck on finding a working Python environment with numpy/strax.
-
-Suggested approach:
-```bash
-ssh dali
-# Find working XENON Python:
-find /cvmfs/xenon.opensciencegrid.org -name "activate" -path "*/bin/activate" 2>/dev/null | head -5
-# or use singularity/apptainer
-apptainer exec /cvmfs/singularity.opensciencegrid.org/xenonnt/xenonnt:latest python3 -c "
-import strax
-# Load just ONE chunk, small window
-records = strax.load_file('/dali/lgrandi/xenonnt/raw/043572/043572-raw_records-xxxx', 
-                          compressor='lz4', dtype=strax.raw_record_dtype())
-print(f'Loaded {len(records)} records')
-"
-```
-
-### 3. S1/S2 filter verification
-You fixed event_browser.py line 141 to work for NPZ mode. Verify:
-- Load bundle → drag S1 min to 2000 → list should filter
-- Load another event → filter should persist and work
-
-### 4. Peak list sort correctness
-Your NumericItem fix is good. But verify after clicking column headers:
-- Sort by Area desc → click row 3 → verify the peak area shown matches
-- Sort by Time asc → click row 5 → verify peak time matches
-Do this for 3 different events.
-
-### 5. Version number
-pyproject.toml says 2.0.0, but Info.plist in built app shows 0.0.0.
-Fix: add `--osx-bundle-version "2.0.0"` to PyInstaller command in build_mac.sh.
-
-## Files I Changed
-- None. I only committed your changes and ran verification tests.
-
-## Files You Changed (commit `0a9bda4`)
-```
-README.md                         | 271 changes
-event_plotter/io.py               |  79 changes
-event_plotter/plotter.py          | 129 changes
-event_viewer_app/data_manager.py  | 175 changes
-event_viewer_app/event_browser.py |  10 changes
-event_viewer_app/event_canvas.py  | 194 changes
-event_viewer_app/main_window.py   |  55 changes
-scripts/extract_event_bundle.py   |  31 changes
-scripts/plot_events.py            |   3 changes
-```
-
-## Next Steps (suggested priority)
-
-1. Wait for build to complete (in progress now)
-2. Test QScrollArea rendering stability
-3. Complete DALI raw data probe
-4. Fix version number
-5. Push to GitHub when stable
-
-## New Tasks (23:22)
-
-### Run Selector UI
-User wants auto-load instead of manual File→Open:
-- App ships with multiple NPZ files (023756, 043864, 044116, etc.)
-- Left panel has a Run dropdown at top
-- Click run name → loads that bundle automatically
-- Same UX as Event list
-
-### Real data validation
-Extract more real peaks from DALI to verify the pipeline at scale:
-```bash
-# On DALI, after source setup:
-cd /scratch/midway3/jiafu/EventViewer
-python dali_probe_extract_peaks_bundle.py --run 043864 --n 50 --output events_run_043864_real_peaks_50ev.npz
-python dali_probe_extract_peaks_bundle.py --run 044116 --n 50 --output events_run_044116_real_peaks_50ev.npz
-```
+## Current App State
+- `/Applications/XENONnT-EventViewer.app` — latest build, working
+- Git: branch main, pushed to GitHub
+- 9 NPZ files in `dali_probe/`, Run Selector shows them all
+- Debug reports: `debug_reports/00_SUMMARY.md`
+- Probe data: `dali_probe/report.md`

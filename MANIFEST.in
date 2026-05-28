@@ -6,4 +6,5 @@ recursive-include event_viewer_app *.py
 recursive-include event_plotter *.py
 recursive-include scripts *.py *.sh
 recursive-include scripts/output *.npz
+recursive-include dali_probe *.py *.sh *.md *.npz
 include scripts/output/events_run_023756.npz

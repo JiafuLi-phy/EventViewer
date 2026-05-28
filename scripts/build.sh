@@ -17,6 +17,16 @@ cd "$PROJ"
 
 PLATFORM="${1:-linux}"
 
+copy_bundles() {
+    local dest="$1"
+    mkdir -p "$dest"
+    for bundle in scripts/output/*.npz dali_probe/*.npz; do
+        if [ -f "$bundle" ]; then
+            cp "$bundle" "$dest/"
+        fi
+    done
+}
+
 case "$PLATFORM" in
     linux)
         echo "=== Building Linux executable ==="
@@ -38,32 +48,15 @@ case "$PLATFORM" in
 
     mac)
         echo "=== Building macOS app (ARM64 native) ==="
-        pyinstaller \
-            --onedir --windowed \
-            --name "XENONnT-EventViewer" \
-            --add-data "scripts/output/events_run_023756.npz:." \
-            --add-data "dali_probe/events_run_043864_real_peaks_200ev.npz:." \
-            --hidden-import PySide6.QtCore \
-            --hidden-import PySide6.QtGui \
-            --hidden-import PySide6.QtWidgets \
-            --hidden-import matplotlib.backends.backend_qtagg \
-            --hidden-import matplotlib.backends.backend_pdf \
-            --hidden-import matplotlib.backends.backend_agg \
-            --collect-submodules numpy \
-            --collect-data matplotlib \
-            --exclude-module tkinter \
-            --exclude-module PyQt5 \
-            --exclude-module scipy \
-            --exclude-module pandas \
+        pyinstaller EventViewer.spec \
             --distpath dist \
             --workpath /tmp/pyinstaller_mac \
-            run_app.py
+            --clean
         echo ""
         echo "=== Creating DMG ==="
         mkdir -p pkg/XENONnT-EventViewer-macos
         cp -R dist/XENONnT-EventViewer.app pkg/XENONnT-EventViewer-macos/
-        cp scripts/output/events_run_023756.npz pkg/XENONnT-EventViewer-macos/ 2>/dev/null || true
-        cp dali_probe/events_run_043864_real_peaks_200ev.npz pkg/XENONnT-EventViewer-macos/ 2>/dev/null || true
+        copy_bundles pkg/XENONnT-EventViewer-macos
         cp README.md pkg/XENONnT-EventViewer-macos/ 2>/dev/null || true
         hdiutil create -volname "XENONnT-EventViewer" \
             -srcfolder pkg/XENONnT-EventViewer-macos \

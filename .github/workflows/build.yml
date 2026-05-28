@@ -35,8 +35,8 @@ jobs:
         run: |
           mkdir -p release/XENONnT-EventViewer-linux
           cp dist/XENONnT-EventViewer release/XENONnT-EventViewer-linux/
-          cp scripts/output/events_run_023756.npz release/XENONnT-EventViewer-linux/ 2>/dev/null || true
-          cp dali_probe/events_run_043864_real_peaks_200ev.npz release/XENONnT-EventViewer-linux/ 2>/dev/null || true
+          cp scripts/output/*.npz release/XENONnT-EventViewer-linux/ 2>/dev/null || true
+          cp dali_probe/*.npz release/XENONnT-EventViewer-linux/ 2>/dev/null || true
           cp README.md release/XENONnT-EventViewer-linux/ 2>/dev/null || true
           cd release && tar czf XENONnT-EventViewer-linux.tar.gz XENONnT-EventViewer-linux/
 
@@ -67,8 +67,8 @@ jobs:
         run: |
           New-Item -ItemType Directory -Path release\XENONnT-EventViewer-windows -Force
           Copy-Item dist\XENONnT-EventViewer.exe release\XENONnT-EventViewer-windows\
-          Copy-Item scripts\output\events_run_023756.npz release\XENONnT-EventViewer-windows\ -ErrorAction SilentlyContinue
-          Copy-Item dali_probe\events_run_043864_real_peaks_200ev.npz release\XENONnT-EventViewer-windows\ -ErrorAction SilentlyContinue
+          Copy-Item scripts\output\*.npz release\XENONnT-EventViewer-windows\ -ErrorAction SilentlyContinue
+          Copy-Item dali_probe\*.npz release\XENONnT-EventViewer-windows\ -ErrorAction SilentlyContinue
           Compress-Archive -Path release\XENONnT-EventViewer-windows\* -DestinationPath release\XENONnT-EventViewer-windows.zip
 
       - uses: actions/upload-artifact@v4
@@ -92,33 +92,14 @@ jobs:
 
       - name: Build
         run: |
-          pyinstaller \
-            --onedir --windowed \
-            --name "XENONnT-EventViewer" \
-            --add-data "scripts/output/events_run_023756.npz:." \
-            --add-data "dali_probe/events_run_043864_real_peaks_200ev.npz:." \
-            --hidden-import PySide6.QtCore \
-            --hidden-import PySide6.QtGui \
-            --hidden-import PySide6.QtWidgets \
-            --hidden-import matplotlib.backends.backend_qtagg \
-            --hidden-import matplotlib.backends.backend_pdf \
-            --hidden-import matplotlib.backends.backend_agg \
-            --collect-submodules numpy \
-            --collect-data matplotlib \
-            --exclude-module tkinter \
-            --exclude-module PyQt5 \
-            --exclude-module scipy \
-            --exclude-module pandas \
-            --distpath dist \
-            --workpath /tmp/pyinstaller_mac \
-            run_app.py
+          pyinstaller EventViewer.spec --distpath dist --workpath /tmp/pyinstaller_mac
 
       - name: Package release (DMG)
         run: |
           mkdir -p pkg/XENONnT-EventViewer-macos-arm64
           cp -R dist/XENONnT-EventViewer.app pkg/XENONnT-EventViewer-macos-arm64/
-          cp scripts/output/events_run_023756.npz pkg/XENONnT-EventViewer-macos-arm64/ 2>/dev/null || true
-          cp dali_probe/events_run_043864_real_peaks_200ev.npz pkg/XENONnT-EventViewer-macos-arm64/ 2>/dev/null || true
+          cp scripts/output/*.npz pkg/XENONnT-EventViewer-macos-arm64/ 2>/dev/null || true
+          cp dali_probe/*.npz pkg/XENONnT-EventViewer-macos-arm64/ 2>/dev/null || true
           cp README.md pkg/XENONnT-EventViewer-macos-arm64/ 2>/dev/null || true
           hdiutil create -volname "XENONnT-EventViewer" \
             -srcfolder pkg/XENONnT-EventViewer-macos-arm64 \
@@ -146,33 +127,14 @@ jobs:
 
       - name: Build
         run: |
-          pyinstaller \
-            --onedir --windowed \
-            --name "XENONnT-EventViewer" \
-            --add-data "scripts/output/events_run_023756.npz:." \
-            --add-data "dali_probe/events_run_043864_real_peaks_200ev.npz:." \
-            --hidden-import PySide6.QtCore \
-            --hidden-import PySide6.QtGui \
-            --hidden-import PySide6.QtWidgets \
-            --hidden-import matplotlib.backends.backend_qtagg \
-            --hidden-import matplotlib.backends.backend_pdf \
-            --hidden-import matplotlib.backends.backend_agg \
-            --collect-submodules numpy \
-            --collect-data matplotlib \
-            --exclude-module tkinter \
-            --exclude-module PyQt5 \
-            --exclude-module scipy \
-            --exclude-module pandas \
-            --distpath dist \
-            --workpath /tmp/pyinstaller_mac \
-            run_app.py
+          pyinstaller EventViewer.spec --distpath dist --workpath /tmp/pyinstaller_mac
 
       - name: Package release (DMG)
         run: |
           mkdir -p pkg/XENONnT-EventViewer-macos-x64
           cp -R dist/XENONnT-EventViewer.app pkg/XENONnT-EventViewer-macos-x64/
-          cp scripts/output/events_run_023756.npz pkg/XENONnT-EventViewer-macos-x64/ 2>/dev/null || true
-          cp dali_probe/events_run_043864_real_peaks_200ev.npz pkg/XENONnT-EventViewer-macos-x64/ 2>/dev/null || true
+          cp scripts/output/*.npz pkg/XENONnT-EventViewer-macos-x64/ 2>/dev/null || true
+          cp dali_probe/*.npz pkg/XENONnT-EventViewer-macos-x64/ 2>/dev/null || true
           cp README.md pkg/XENONnT-EventViewer-macos-x64/ 2>/dev/null || true
           hdiutil create -volname "XENONnT-EventViewer" \
             -srcfolder pkg/XENONnT-EventViewer-macos-x64 \

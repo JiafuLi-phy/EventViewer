@@ -8,6 +8,8 @@ build/
 *.egg-info/
 *.spec.bak
 XENONnT-EventViewer.spec
+XENONnT-EventViewer
+scripts/XENONnT-EventViewer
 
 # PyInstaller
 /tmp/pyinstaller_*/
@@ -17,6 +19,15 @@ __pycache__/
 
 # Scripts not for distribution
 scripts/setup_github.sh
+download_artifacts.sh
+final_build.sh
+push_release.sh
+rebuild.sh
+run_ci.sh
+tag_and_build.sh
+update_ci.sh
+upload_now.sh
+upload_release.sh
 
 # Output (keep .npz bundles)
 scripts/output/*.pdf

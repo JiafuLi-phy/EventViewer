@@ -1,6 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 """PyInstaller spec for XENONnT Event Viewer."""
 
+import glob
 import os
 import sys
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules, collect_dynamic_libs
@@ -11,10 +12,13 @@ block_cipher = None
 
 # Collect matplotlib data
 mpl_data = collect_data_files("matplotlib", subdir="mpl-data")
-bundle_data = [
-    (os.path.join(_PROJ, "scripts", "output", "events_run_023756.npz"), "."),
-    (os.path.join(_PROJ, "dali_probe", "events_run_043864_real_peaks_200ev.npz"), "."),
-]
+bundle_data = []
+for pattern in (
+    os.path.join(_PROJ, "scripts", "output", "*.npz"),
+    os.path.join(_PROJ, "dali_probe", "*.npz"),
+):
+    for path in sorted(glob.glob(pattern)):
+        bundle_data.append((path, "."))
 
 # Collect hidden imports
 hiddenimports = [
@@ -92,7 +96,8 @@ if sys.platform == "darwin":
         info_plist={
             "NSHighResolutionCapable": True,
             "CFBundleName": "XENONnT Event Viewer",
-            "CFBundleShortVersionString": "2.0.0",
+            "CFBundleShortVersionString": "2.0.1",
+            "CFBundleVersion": "2.0.1",
             "CFBundleInfoDictionaryVersion": "6.0",
             "CFBundlePackageType": "APPL",
             "LSEnvironment": {

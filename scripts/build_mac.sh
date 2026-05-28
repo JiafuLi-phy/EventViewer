@@ -6,13 +6,19 @@ cd "$(dirname "$0")/.."
 echo "=== Cleaning ==="
 rm -rf dist/XENONnT-EventViewer dist/XENONnT-EventViewer.app
 
+DATA_ARGS=()
+for bundle in scripts/output/*.npz dali_probe/*.npz; do
+  if [ -f "$bundle" ]; then
+    DATA_ARGS+=(--add-data "$bundle:.")
+  fi
+done
+
 echo "=== Building ==="
 ~/Library/Python/3.9/bin/pyinstaller \
   --onedir \
   --windowed \
   --name XENONnT-EventViewer \
-  --add-data "scripts/output/events_run_023756.npz:." \
-  --add-data "dali_probe/events_run_043864_real_peaks_200ev.npz:." \
+  "${DATA_ARGS[@]}" \
   --hidden-import PySide6.QtCore \
   --hidden-import PySide6.QtGui \
   --hidden-import PySide6.QtWidgets \
@@ -31,10 +37,10 @@ echo "=== Building ==="
 
 echo "=== Setting bundle version ==="
 PLIST="dist/XENONnT-EventViewer.app/Contents/Info.plist"
-/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString 2.0.0" "$PLIST" 2>/dev/null || \
-  /usr/libexec/PlistBuddy -c "Add :CFBundleShortVersionString string 2.0.0" "$PLIST"
-/usr/libexec/PlistBuddy -c "Set :CFBundleVersion 2.0.0" "$PLIST" 2>/dev/null || \
-  /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string 2.0.0" "$PLIST"
+/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString 2.0.1" "$PLIST" 2>/dev/null || \
+  /usr/libexec/PlistBuddy -c "Add :CFBundleShortVersionString string 2.0.1" "$PLIST"
+/usr/libexec/PlistBuddy -c "Set :CFBundleVersion 2.0.1" "$PLIST" 2>/dev/null || \
+  /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string 2.0.1" "$PLIST"
 
 echo "=== Deploying ==="
 rm -rf "/Applications/XENONnT-EventViewer.app"

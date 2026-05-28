@@ -10,6 +10,7 @@
 \geometry{margin=2.5cm}
 
 \definecolor{codebg}{rgb}{0.95,0.95,0.95}
+\lstdefinelanguage{text}{}
 \lstset{
   backgroundcolor=\color{codebg},
   basicstyle=\ttfamily\small,
@@ -454,7 +455,7 @@ pyinstaller \
 
 构建脚本通过 PlistBuddy 注入版本号到 Info.plist：
 \begin{lstlisting}[language=bash]
-/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString 2.0.0" \
+/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString 2.0.1" \
   "dist/XENONnT-EventViewer.app/Contents/Info.plist"
 \end{lstlisting}
 

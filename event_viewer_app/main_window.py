@@ -92,7 +92,7 @@ class PeakListWidget(QWidget):
 
         self._peak_indices = []  # maps table row → original peak index
 
-    def populate(self, peaks: np.ndarray, main_s1_idx=None, main_s2_idx=None):
+    def populate(self, peaks: np.ndarray, main_s1_idx=None, main_s2_idx=None, event_time_ns=None):
         """Fill table with peak data. *peaks* is a structured array sorted by area desc."""
         self._table.setSortingEnabled(False)
         self._table.setRowCount(0)
@@ -150,8 +150,9 @@ class PeakListWidget(QWidget):
             item = self.NumericItem(f"{rise:.1f}")
             self._table.setItem(row, 3, item)
 
-            # Time relative to event start (ns->μs)
-            ev_time = int(p["time"]) / 1000
+            # Time relative to event start (ns->μs), matching waveform x-axis.
+            t0 = int(event_time_ns) if event_time_ns is not None else 0
+            ev_time = (int(p["time"]) - t0) / 1000
             item = self.NumericItem(f"{ev_time:.1f}")
             self._table.setItem(row, 4, item)
 
@@ -227,6 +228,7 @@ class MainWindow(QMainWindow):
         self._setup_ui()
         self._setup_statusbar()
         self._setup_shortcuts()
+        self._load_initial_bundle()
 
     # ── UI setup ──────────────────────────────────────────────────
 
@@ -374,7 +376,8 @@ class MainWindow(QMainWindow):
         self._run_combo.clear()
         self._run_paths = {}
 
-        seen = set()
+        seen_paths = set()
+        seen_labels = set()
         for d in search_dirs:
             if not os.path.isdir(d):
                 continue
@@ -384,22 +387,39 @@ class MainWindow(QMainWindow):
                         continue
                     full = os.path.abspath(os.path.join(d, f))
                     canonical = os.path.realpath(full)
-                    if canonical in seen:
+                    if canonical in seen_paths:
                         continue
-                    seen.add(canonical)
                     try:
-                        b = np.load(full, allow_pickle=True)
-                        run_id = str(b.get('run_id', '?'))
-                        n_ev = len(b['events']) if 'events' in b else '?'
+                        with np.load(full, allow_pickle=True) as b:
+                            run_id = str(b.get('run_id', '?'))
+                            n_ev = len(b['events']) if 'events' in b else '?'
                         label = f"Run {run_id} ({n_ev} ev)  [{os.path.basename(f)}]"
                     except Exception:
                         label = os.path.basename(f)
+                    if label in seen_labels:
+                        continue
+                    seen_paths.add(canonical)
+                    seen_labels.add(label)
                     self._run_paths[label] = full
                     self._run_combo.addItem(label)
             except OSError:
                 pass
 
         self._run_combo.blockSignals(False)
+
+    def _load_initial_bundle(self):
+        """Load the current Run Selector item after the whole window exists."""
+        if not self._run_combo.count():
+            return
+        preferred_idx = 0
+        for i in range(self._run_combo.count()):
+            if "events_run_023756.npz" in self._run_combo.itemText(i):
+                preferred_idx = i
+                break
+        self._run_combo.blockSignals(True)
+        self._run_combo.setCurrentIndex(preferred_idx)
+        self._run_combo.blockSignals(False)
+        self._on_run_selected(preferred_idx)
 
     def _on_run_selected(self, idx):
         if idx < 0:
@@ -553,7 +573,13 @@ class MainWindow(QMainWindow):
             # Populate peak list
             s1_idx = int(event["s1_index"]) if "s1_index" in event.dtype.names else None
             s2_idx = int(event["s2_index"]) if "s2_index" in event.dtype.names else None
-            self._peak_list.populate(peaks, main_s1_idx=s1_idx, main_s2_idx=s2_idx)
+            event_time_ns = int(event["time"]) if "time" in event.dtype.names else None
+            self._peak_list.populate(
+                peaks,
+                main_s1_idx=s1_idx,
+                main_s2_idx=s2_idx,
+                event_time_ns=event_time_ns,
+            )
 
             # Render
             self._render_event(event, peaks, to_pe, pmt_pos, eac, raw_records)
