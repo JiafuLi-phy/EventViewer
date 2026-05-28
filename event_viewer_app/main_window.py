@@ -98,10 +98,19 @@ class PeakListWidget(QWidget):
         self._table.setRowCount(0)
         self._peak_indices = []
 
-        # Sort by area descending, track original indices
+        # Custom sort: Main S1, Main S2, S1s, S2s, unknown. Within group by area desc.
         if len(peaks):
             original_idx = np.arange(len(peaks))
-            order = np.argsort(peaks["area"])[::-1]
+            # Assign sort group: 0=Main S1, 1=Main S2, 2=S1, 3=S2, 4=unknown
+            groups = np.full(len(peaks), 4, dtype=int)
+            groups[peaks['type'] == 1] = 2
+            groups[peaks['type'] == 2] = 3
+            if main_s1_idx is not None and main_s1_idx < len(peaks):
+                groups[main_s1_idx] = 0
+            if main_s2_idx is not None and main_s2_idx < len(peaks):
+                groups[main_s2_idx] = 1
+            # Sort by (group, -area)
+            order = np.lexsort((-peaks["area"], groups))
             peaks = peaks[order]
             original_idx = original_idx[order]
 
