@@ -230,19 +230,21 @@ class EventCanvas(QWidget):
         import matplotlib.pyplot as plt
         title = ax.get_title()
         fig, new_ax = plt.subplots(figsize=(8, 8))
+        pmt_ids = getattr(ax, '_pmt_ids', None)
+        hover_annot = [None]  # mutable for closure
         # Copy PMT scatter data
         for coll in ax.collections:
             if hasattr(coll, 'get_offsets'):
                 offsets = coll.get_offsets()
                 facecolors = coll.get_facecolors()
-                new_ax.scatter(offsets[:, 0], offsets[:, 1],
+                sc = new_ax.scatter(offsets[:, 0], offsets[:, 1],
                               s=100, c=facecolors, edgecolors='white', linewidths=0.3)
         # Copy circle artists
         for artist in ax.artists:
             if hasattr(artist, 'radius'):
-                import matplotlib.pyplot as plt2
                 r = artist.radius
-                new_ax.add_artist(plt2.Circle((0, 0), r, edgecolor='k', facecolor='none', linewidth=1.2))
+                new_ax.add_artist(plt.Circle((0, 0), r, edgecolor='k', facecolor='none', linewidth=1.2))
+        new_ax._pmt_ids = pmt_ids
         new_ax.set_aspect('equal')
         new_ax.set_xlim(ax.get_xlim())
         new_ax.set_ylim(ax.get_ylim())
@@ -250,6 +252,36 @@ class EventCanvas(QWidget):
         new_ax.set_ylabel(ax.get_ylabel())
         new_ax.set_title(title)
         fig.tight_layout()
+        # Hover handler for PMT ID
+        def on_hover(event):
+            if event.inaxes != new_ax:
+                if hover_annot[0]:
+                    hover_annot[0].remove()
+                    hover_annot[0] = None
+                    fig.canvas.draw_idle()
+                return
+            for coll in new_ax.collections:
+                if not hasattr(coll, 'get_offsets'):
+                    continue
+                cont, info = coll.contains(event)
+                if cont:
+                    idx = info['ind'][0]
+                    offsets = coll.get_offsets()
+                    x, y = offsets[idx]
+                    pid = pmt_ids[idx] if pmt_ids and idx < len(pmt_ids) else idx
+                    if hover_annot[0]:
+                        hover_annot[0].remove()
+                    hover_annot[0] = new_ax.annotate(
+                        f"PMT {pid}", (x, y), xytext=(5, 5),
+                        textcoords='offset points', fontsize=10, color='black',
+                        bbox=dict(boxstyle='round,pad=0.2', facecolor='yellow', alpha=0.8))
+                    fig.canvas.draw_idle()
+                    return
+            if hover_annot[0]:
+                hover_annot[0].remove()
+                hover_annot[0] = None
+                fig.canvas.draw_idle()
+        fig.canvas.mpl_connect('motion_notify_event', on_hover)
         fig.show()
 
     def _on_hover(self, event):
