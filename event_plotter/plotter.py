@@ -754,7 +754,8 @@ def plot_event_full(
             raw_records=raw_records, to_pe=to_pe, pmt_positions=pmt_positions,
             highlight_idx=highlight_peak_idx,
         )
-        ax_wf_log.set_yscale("symlog", linthresh=10, linscale=0.5)
+        ax_wf_log.set_yscale("symlog", linthresh=1e-10, linscale=0.5)
+        ax_wf_log.set_ylim(bottom=1e-10)
     ax_wf.set_title("Event waveform: top + bottom + total",
                     fontsize=_rsize + 3, fontweight="bold")
 
