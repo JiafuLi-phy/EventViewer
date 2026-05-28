@@ -790,7 +790,7 @@ def plot_event_full(
         if "s2_x" in event.dtype.names and "s2_y" in event.dtype.names:
             s2x, s2y = float(event["s2_x"]), float(event["s2_y"])
             if abs(s2x) > 0.01 or abs(s2y) > 0.01:
-                ax_pmt.plot(s2x, s2y, 'r*', markersize=16, markeredgewidth=4,
+                ax_pmt.plot(s2x, s2y, 'r*', markersize=10, markeredgewidth=2.5,
                            zorder=10, label='S2')
         # Mark S1 max PMT with blue diamond (on top layer)
         if "s1_max_pmt" in event.dtype.names:
