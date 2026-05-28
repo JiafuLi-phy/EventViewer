@@ -827,6 +827,7 @@ def _draw_3layer_waveform(
             })
 
         ax.axhline(0, color="k", alpha=0.15, linewidth=0.4)
+        ax.set_xlabel("Time [μs]", fontweight="bold")
         ax.set_ylabel("Real peak waveform [PE/ns]")
         style.tighten_ylim(ax)
         leg = ax.legend(loc="upper right", fontsize=style.plt.rcParams["font.size"] - 1)
@@ -870,6 +871,7 @@ def _draw_3layer_waveform(
                 "center_x": (x_start + x_end) / 2,
                 "index": int(orig_i), "type": int(p["type"]), "area": float(p["area"]),
             })
+        ax.set_xlabel("Time [μs]", fontweight="bold")
         ax.set_ylabel("Intensity [PE/ns]")
         style.tighten_ylim(ax)
         leg = ax.legend(loc="upper right", fontsize=style.plt.rcParams["font.size"] - 1)
@@ -938,6 +940,7 @@ def _draw_3layer_waveform(
         })
 
     ax.axhline(0, color="k", alpha=0.15, linewidth=0.4)
+    ax.set_xlabel("Time [μs]", fontweight="bold")
     ax.set_ylabel("Model pulse [PE/ns]")
     style.tighten_ylim(ax)
     leg = ax.legend(loc="upper right", fontsize=style.plt.rcParams["font.size"] - 1)
