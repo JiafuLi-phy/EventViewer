@@ -1,95 +1,110 @@
-# Handoff to Codex — 2026-05-28
+# Handoff to Codex — Final State
 
-## Completed Changes (today)
+## Current Status
 
-### UI / Layout
-- [x] Figure height 12→18in, 3-row GridSpec (linear + log + PMT)
-- [x] Log-scale event waveform (symlog, bottom=1e-3, below linear)
-- [x] PMT marker sizes: event overview 40, peak zoom 80, zoom window 100
-- [x] Legend font 16pt, positioned (1.04, 1.10), uses rcParams correctly
-- [x] Legend border removed
-- [x] Interactive legend: click layer name → show only that layer, click again → show all
-- [x] Left panel max width 500, stretch factor 1:3, draggable
-- [x] Peak list sort: Main S1 → Main S2 → S1s → S2s → unknown (within group by area)
-- [x] Peak list units: ns→μs (Width, Rise, Time)
-- [x] Main S1/S2 displayed as bold "Main S1"/"Main S2"
-- [x] Run Selector dropdown + Browse button
-- [x] Run Selector auto-scans dali_probe/, scripts/output/, ~/Desktop/EventViewer/dali_probe
-- [x] Run Selector refreshes on File→Open
+**App**: `/Applications/XENONnT-EventViewer.app` (v2.0.0, working)
+**Git**: main branch, pushed to GitHub
 
-### Rendering
-- [x] 3-pass drawing: all Top first → all Bottom → all Total (z-order fix)
-- [x] Total color = red (#F44336) everywhere (model + real data paths)
-- [x] `p.copy()` instead of `np.array(p, copy=True)` for numpy void scalars (shared memory bug)
-- [x] `fig.clf()` → full Figure+Canvas replacement (ghosting fix)
-- [x] `tighten_ylim` checks both lines and collections (fix_between data)
-- [x] y-axis pad_frac 0.05→0.10
-- [x] Total alpha 0.55→0.30 (lighter fill)
-- [x] Top/Bottom alpha 0.20→0.08 (very faint background)
-- [x] Total linewidth 1.5x (boldest)
-- [x] 3-layer legend now works for model pulse path (was missing _legend_state)
-- [x] x-axis: seconds→μs, correct ns/1000 conversion
-- [x] xlabel "Time [μs]" on all waveform axes
-- [x] MAX_CLICK_DIST 0.0005s→500μs for μs x-axis
+## What's Done
+
+### UI & Layout
+- 3-row event display: linear waveform + log waveform + PMT patterns
+- Figure 18in tall, PMT row 1.4x height
+- Legend 16pt, no border, positioned (1.04, 1.10)
+- Interactive legend: click layer → show only that layer
+- PMT markers 40 (event) / 80 (zoom)
+- 4-sided spines on all axes
+- Y-axis: Amplitude [PE/μs], X-axis: Time [μs]
+- Peak list: Type/Area/Width/Rise/X/Y columns
+- Peak sort: Main S1 → Main S2 → S1s → S2s → unknown
+- Run Selector dropdown + Browse button
+- Log y-scale: symlog, bottom=1e-3, top=15x max peak
+- Adaptive linear y-limit from data
 
 ### Features
-- [x] PMT pattern click → standalone zoomed figure (larger dots, hover shows PMT ID)
-- [x] PMT ID hover on zoomed figure (standalone canvas with motion_notify_event)
+- 3-layer waveform: Top (blue) + Bottom (green) + Total (red)
+- Peak click → zoom with per-peak position markers
+- PMT pattern click → standalone zoomed window with colorbar
+- PMT ID hover (both main and zoomed windows)
+- Numeric peak search: area>1000, width<50, etc.
+- Event info above peaks: drift time, S2 position
+- Export Ctrl+S → Desktop (no dialog)
+- Toolbar save button works
 
-### Data
-- [x] 023756 (50ev, model) — original bundle
-- [x] 043864 (200ev, real peaks, 9MB) — from DALI
-- [x] 043864 (30ev, real peaks) — new extraction
-- [x] 044116 (20ev + 30ev, real peaks) — new extraction
-- [x] 044165 (20ev, real peaks) — new extraction
-- [x] 044225 (20ev, real peaks) — new extraction
-- [x] 044311 (20ev, real peaks) — new extraction
-- [x] 044834 (20ev, real peaks) — new extraction
-- [x] DALI batch extraction script (dali_probe/batch_extract.sh)
-- [x] Total: 6 runs, 430 events, all with real waveform data
+### Data Pipeline
+- Unified extraction: `dali_probe/extract_bundle.py`
+  - Auto-detects DALI/Midway3 server
+  - Auto-selects real peaks or peak_basics
+  - Always loads CNN positions if available
+- 7 bundled runs (all with positions):
+  ```bash
+  # DALI (real waveforms + positions)
+  python extract_bundle.py --batch 043864,044116,044165,044225,044311,044834 --n 30
+  # Midway3 (model waveforms + positions)  
+  python extract_bundle.py --run 023756 --n 50
+  ```
 
-### Build
-- [x] Info.plist version 2.0.2 (PlistBuddy injection in build_mac.sh)
-- [x] backend_pdf, backend_agg added to PyInstaller hidden imports
-- [x] Export Ctrl+S → Desktop (no dialog)
-- [x] Toolbar save button fixed (toolbar.canvas updated after clear())
-- [x] Old versions cleaned from Desktop and Applications
+### Rendering Fixes
+- Full Figure+Canvas replacement on clear() (ghosting)
+- 3-pass drawing: all Top → all Bottom → all Total
+- numpy void copy: p.copy() not np.array(p, copy=True)
+- ns→μs: /1000 conversion everywhere
+- S1/S2 position markers on PMT patterns
+- Per-peak CNN positions in peak list X/Y columns
+- Event overview always shows S1+S2 markers
 
-### Bugs Fixed (today, ~40 commits)
-1. numpy void scalar copy bug (shared memory)
-2. Total=red missing in real data event overview
-3. Interactive legend missing for model pulse path
-4. ns→μs wrong conversion (/1e6→/1000)
-5. MAX_CLICK_DIST not updated for μs units
-6. PMT marker too large for taller figure
-7. Syntax errors from inline comments in replace_all
-8. Legend fontsize overridden by explicit fontsize parameter
-
-## Unresolved Issues
+## Remaining Issues
 
 ### High Priority
-- [ ] QScrollArea stability not fully verified — colored edge artifacts risk
-- [ ] Strax mode UI freeze (synchronous loading, no progress bar)
-- [ ] Run Selector in .app only finds bundled NPZ, not external files
-- [ ] macOS Gatekeeper "unidentified developer" warning on first launch
+- [ ] QScrollArea stability (edge artifacts risk, not fully verified)
+- [ ] macOS Gatekeeper warning on first launch
+- [ ] Windows/Linux CI build (push v* tag)
 
 ### Medium Priority
-- [ ] Event overview 3-layer is dense/cluttered for runs with many peaks
-- [ ] Peak zoom PMT pattern shows scaled EAC for model data (no real per-peak apc)
-- [ ] No loading indicator when switching runs/events
-- [ ] Export QFileDialog may not open in PyInstaller .app (macOS z-order)
-- [ ] Windows/Linux packages need CI build (push v* tag)
+- [ ] Event overview 3-layer dense/cluttered for many-peak events
+- [ ] No loading indicator when switching runs
+- [ ] Data source panel is redundant (Run Selector + Browse covers it)
+- [ ] Export QFileDialog may not open in PyInstaller .app
 
 ### Low Priority
-- [ ] print() debug leftovers in scripts/ (cosmetic)
-- [ ] Daq data source panel is redundant (Run Selector + Browse covers it)
-- [ ] Peak list time column shows absolute epoch time (should be relative to event start)
-- [ ] 044834 NPZ transfer was unreliable (SCP truncation)
-- [ ] TeX docs not included in app bundle
+- [ ] print() debug leftovers in scripts/
+- [ ] TeX docs need updating (describe new features)
+- [ ] Old LaTeX PDFs should be removed from git tracking
 
-## Current App State
-- `/Applications/XENONnT-EventViewer.app` — latest build, working
-- Git: branch main, pushed to GitHub
-- 9 NPZ files in `dali_probe/`, Run Selector shows them all
-- Debug reports: `debug_reports/00_SUMMARY.md`
-- Probe data: `dali_probe/report.md`
+## Files Structure
+
+```
+EventViewer/
+├── event_viewer_app/     # Qt GUI
+│   ├── main_window.py    # PeakListWidget, RunSelector, Browse
+│   ├── event_browser.py  # Event list, search, filters
+│   ├── event_canvas.py   # Canvas + events + PMT zoom
+│   ├── data_manager.py   # NPZ/strax loading + positions
+│   └── qt_compat.py      # PySide6/2 compat
+├── event_plotter/        # Plotting engine
+│   ├── plotter.py        # plot_event_full, plot_peak_zoom, markers
+│   ├── io.py             # Data I/O
+│   └── style.py          # Colors, fonts, spines
+├── dali_probe/
+│   ├── extract_bundle.py # UNIFIED extraction (DALI+Midway3)
+│   ├── extract_peaks_bundle.py  # Legacy DALI extractor
+│   ├── extract_with_positions.py # Legacy Midway3 extractor
+│   └── events_*_bundle.npz     # 7 NPZ bundles with positions
+├── scripts/
+│   ├── build_mac.sh      # macOS PyInstaller build
+│   └── output/events_run_023756.npz  # Original 50ev bundle
+├── docs/                 # LaTeX docs (CN + EN)
+├── debug_reports/        # Test suite
+└── README.md
+```
+
+## Quick Commands
+
+```bash
+# Build
+bash scripts/build_mac.sh
+
+# Extract data
+python dali_probe/extract_bundle.py --run 023756 --n 50    # Midway3
+python dali_probe/extract_bundle.py --batch 043864,044116 --n 30  # DALI
+```
