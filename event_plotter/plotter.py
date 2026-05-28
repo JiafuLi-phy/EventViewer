@@ -1449,7 +1449,8 @@ def plot_peak_zoom(
             if abs(peak_x) > 0.01 or abs(peak_y) > 0.01:
                 ax_pmt.plot(peak_x, peak_y, 'y*', markersize=12, markeredgewidth=2.5, zorder=10)
                 ax_pmt.annotate(f'Pk{highlight_idx}', (peak_x, peak_y), xytext=(8, 8),
-                               textcoords='offset points', fontsize=10, color='gold', fontweight='bold')
+                               textcoords='offset points', fontsize=10, color='#B8860B', fontweight='bold',
+                               bbox=dict(facecolor='white', alpha=0.7, edgecolor='none', pad=1))
         elif ptype == 1 and "s1_max_pmt" in event.dtype.names:
             max_pmt = int(event["s1_max_pmt"])
             if max_pmt < len(pmt_positions) and pmt_positions[max_pmt]["array"] == arr_name:
