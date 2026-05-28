@@ -1264,6 +1264,8 @@ def plot_peak_zoom(
     highlight_idx: int,
     event_area_per_channel: Optional[np.ndarray] = None,
     raw_records: Optional[np.ndarray] = None,
+    peak_x: Optional[float] = None,
+    peak_y: Optional[float] = None,
     figsize: Tuple[float, float] = (16, 10),
     title: Optional[str] = None,
     fig: Optional[plt.Figure] = None,
@@ -1442,20 +1444,27 @@ def plot_peak_zoom(
                                  vmin=0, marker_size=80,
                                  show_colorbar=True, label="Area [PE]")
         ax_pmt.set_title(f"{arr_name.capitalize()} PMT{pmt_suffix}", fontweight="bold")
-        # Mark position only for main S1/S2
-        s1_idx = int(event["s1_index"]) if "s1_index" in event.dtype.names else -1
-        s2_idx = int(event["s2_index"]) if "s2_index" in event.dtype.names else -1
-        if highlight_idx == s1_idx and "s1_max_pmt" in event.dtype.names:
+        # Mark per-peak position (prefer peak's own pos, fall back to event-level)
+        if peak_x is not None and peak_y is not None and not (np.isnan(peak_x) or np.isnan(peak_y)):
+            if abs(peak_x) > 0.01 or abs(peak_y) > 0.01:
+                ax_pmt.plot(peak_x, peak_y, 'y*', markersize=12, markeredgewidth=2.5, zorder=10)
+                ax_pmt.annotate(f'Pk{highlight_idx}', (peak_x, peak_y), xytext=(8, 8),
+                               textcoords='offset points', fontsize=10, color='gold', fontweight='bold')
+        elif ptype == 1 and "s1_max_pmt" in event.dtype.names:
             max_pmt = int(event["s1_max_pmt"])
             if max_pmt < len(pmt_positions) and pmt_positions[max_pmt]["array"] == arr_name:
                 ax_pmt.plot(pmt_positions[max_pmt]["x"], pmt_positions[max_pmt]["y"],
                            'g*', markersize=10, markeredgewidth=2.5, zorder=10)
-        elif highlight_idx == s2_idx:
+                ax_pmt.annotate('S1', (pmt_positions[max_pmt]["x"], pmt_positions[max_pmt]["y"]),
+                               xytext=(8, 8), textcoords='offset points', fontsize=10,
+                               color='green', fontweight='bold')
+        elif ptype == 2:
+            s2x = s2y = None
             if "s2_x_cnn" in event.dtype.names and "s2_y_cnn" in event.dtype.names:
                 s2x, s2y = float(event["s2_x_cnn"]), float(event["s2_y_cnn"])
             elif "s2_x" in event.dtype.names and "s2_y" in event.dtype.names:
                 s2x, s2y = float(event["s2_x"]), float(event["s2_y"])
-            if abs(s2x) > 0.01 or abs(s2y) > 0.01:
+            if s2x is not None and s2y is not None and (abs(s2x) > 0.01 or abs(s2y) > 0.01):
                 ax_pmt.plot(s2x, s2y, 'r*', markersize=10, markeredgewidth=2.5, zorder=10)
 
     if title is None:

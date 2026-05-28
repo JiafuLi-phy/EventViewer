@@ -734,12 +734,21 @@ class MainWindow(QMainWindow):
             else:
                 peak = peaks[self._selected_peak_idx] if self._selected_peak_idx < len(peaks) else peaks[0]
 
+            # Get per-peak position
+            pk_x = pk_y = None
+            pos = self._dm.get_peak_positions(self._current_event)
+            if pos is not None and self._selected_peak_idx < len(pos):
+                pp = pos[self._selected_peak_idx]
+                if len(pp) == 2 and not (np.isnan(pp[0]) or np.isnan(pp[1])):
+                    pk_x, pk_y = float(pp[0]), float(pp[1])
+
             plotter.plot_peak_zoom(
                 peak, peaks, to_pe, pmt_pos,
                 event,
                 highlight_idx=self._selected_peak_idx,
                 event_area_per_channel=eac,
                 raw_records=raw_records,
+                peak_x=pk_x, peak_y=pk_y,
                 fig=fig,
                 figsize=(12, 13),
                 run_id=self._dm.run_id,
