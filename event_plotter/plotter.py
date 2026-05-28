@@ -898,7 +898,7 @@ def _draw_3layer_waveform(
         if ptype == 1 and "top" not in plotted_types:
             top_lbl = "Top"; plotted_types.add("top")
         else: top_lbl = None
-        p_top = np.array(p, copy=True)
+        p_top = p.copy()
         p_top["area"] = area_tot * frac_top
         lw_scale = 3 if highlight_idx is not None and orig_i == highlight_idx else 1
         plot_peak_waveform_model(p_top, t0=t0, ax=ax,
@@ -912,7 +912,7 @@ def _draw_3layer_waveform(
         if ptype == 1 and "bottom" not in plotted_types:
             bot_lbl = "Bottom"; plotted_types.add("bottom")
         else: bot_lbl = None
-        p_bot = np.array(p, copy=True)
+        p_bot = p.copy()
         p_bot["area"] = area_tot * (1 - frac_top)
         lw_scale = 3 if highlight_idx is not None and orig_i == highlight_idx else 1
         plot_peak_waveform_model(p_bot, t0=t0, ax=ax,
