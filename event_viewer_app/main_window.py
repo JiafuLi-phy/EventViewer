@@ -50,7 +50,7 @@ class StraxLoadWorker(QObject):
 class PeakListWidget(QWidget):
     """Table widget listing all peaks for the current event."""
 
-    COLUMNS = ["Type", "Area [PE]", "Width [μs]", "Rise [μs]", "Time [μs]"]
+    COLUMNS = ["Type", "Area [PE]", "Width [μs]", "Rise [μs]"]
 
     class NumericItem(QTableWidgetItem):
         @staticmethod
@@ -87,6 +87,10 @@ class PeakListWidget(QWidget):
         header_row.addWidget(self._search_edit)
         layout.addLayout(header_row)
 
+        self._event_info = QLabel("")
+        self._event_info.setStyleSheet("font-size: 10px; color: #555; padding: 2px 0;")
+        layout.addWidget(self._event_info)
+
         self._table = QTableWidget(0, len(self.COLUMNS))
         self._table.setHorizontalHeaderLabels(self.COLUMNS)
         self._table.setSelectionBehavior(QAbstractItemView.SelectRows)
@@ -104,12 +108,20 @@ class PeakListWidget(QWidget):
         self._main_s2_idx = None
         self._event_time_ns = None
 
-    def populate(self, peaks: np.ndarray, main_s1_idx=None, main_s2_idx=None, event_time_ns=None):
-        """Fill table with peak data. *peaks* is kept in original event order."""
+    def populate(self, peaks, main_s1_idx=None, main_s2_idx=None, event_time_ns=None,
+                 drift_time_us=None, s2_x=None, s2_y=None):
+        """Fill table with peak data."""
         self._all_peaks = peaks if peaks is not None else np.array([])
         self._main_s1_idx = main_s1_idx
         self._main_s2_idx = main_s2_idx
         self._event_time_ns = event_time_ns
+        # Update event info label
+        parts = []
+        if drift_time_us is not None:
+            parts.append(f"Drift: {drift_time_us:.1f} μs")
+        if s2_x is not None and s2_y is not None and (abs(s2_x) > 0.01 or abs(s2_y) > 0.01):
+            parts.append(f"S2 pos: ({s2_x:.1f}, {s2_y:.1f}) cm")
+        self._event_info.setText("  |  ".join(parts))
         self._render_table()
 
     def _apply_search(self):
@@ -250,9 +262,6 @@ class PeakListWidget(QWidget):
 
             item = self.NumericItem(f"{rise:.1f}")
             self._table.setItem(row, 3, item)
-
-            item = self.NumericItem(f"{ev_time:.1f}")
-            self._table.setItem(row, 4, item)
 
             # Color-code S1/S2 rows
             if ptype == 1:
@@ -669,11 +678,19 @@ class MainWindow(QMainWindow):
             s1_idx = int(event["s1_index"]) if "s1_index" in event.dtype.names else None
             s2_idx = int(event["s2_index"]) if "s2_index" in event.dtype.names else None
             event_time_ns = int(event["time"]) if "time" in event.dtype.names else None
+            # Compute drift time
+            drift_us = None
+            if "s1_time" in event.dtype.names and "s2_time" in event.dtype.names:
+                drift_us = (int(event["s2_time"]) - int(event["s1_time"])) / 1000
+            s2x = float(event["s2_x"]) if "s2_x" in event.dtype.names else None
+            s2y = float(event["s2_y"]) if "s2_y" in event.dtype.names else None
             self._peak_list.populate(
                 peaks,
                 main_s1_idx=s1_idx,
                 main_s2_idx=s2_idx,
                 event_time_ns=event_time_ns,
+                drift_time_us=drift_us,
+                s2_x=s2x, s2_y=s2y,
             )
 
             # Render
