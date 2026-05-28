@@ -877,15 +877,11 @@ def _draw_3layer_waveform(
             txt.set_picker(True)
         return
 
+    # Pre-compute frac_top for all peaks
+    peak_data = []
     for i, p in enumerate(peaks):
         orig_i = original_idx[i]
         ptype = int(p["type"])
-        c = style.PEAK_COLORS.get(ptype, style.NEUTRAL_MID)
-        top_lbl = "Top" if "top" not in plotted_types else None
-        bot_lbl = "Bottom" if "bottom" not in plotted_types else None
-        lbl = "Total" if "total" not in plotted_types else None
-        plotted_types.update({"top", "bottom", "total"})
-
         if "area_fraction_top" in p.dtype.names:
             frac_top = float(p["area_fraction_top"])
         elif "data_top" in p.dtype.names and "data" in p.dtype.names:
@@ -895,20 +891,40 @@ def _draw_3layer_waveform(
         else:
             frac_top = 0.5
         area_tot = float(p["area"])
+        peak_data.append((i, orig_i, p, ptype, frac_top, area_tot))
 
+    # Pass 1: draw ALL Top layers first
+    for i, orig_i, p, ptype, frac_top, area_tot in peak_data:
+        if ptype == 1 and "top" not in plotted_types:
+            top_lbl = "Top"; plotted_types.add("top")
+        else: top_lbl = None
         p_top = np.array(p, copy=True)
         p_top["area"] = area_tot * frac_top
         lw_scale = 3 if highlight_idx is not None and orig_i == highlight_idx else 1
         plot_peak_waveform_model(p_top, t0=t0, ax=ax,
             color="#2196F3", alpha_fill=0.2, linewidth=0.9 * lw_scale,
             label=top_lbl)
+    # Reset for pass 2
+    if "top" in plotted_types: plotted_types.remove("top")
 
+    # Pass 2: draw ALL Bottom layers
+    for i, orig_i, p, ptype, frac_top, area_tot in peak_data:
+        if ptype == 1 and "bottom" not in plotted_types:
+            bot_lbl = "Bottom"; plotted_types.add("bottom")
+        else: bot_lbl = None
         p_bot = np.array(p, copy=True)
         p_bot["area"] = area_tot * (1 - frac_top)
+        lw_scale = 3 if highlight_idx is not None and orig_i == highlight_idx else 1
         plot_peak_waveform_model(p_bot, t0=t0, ax=ax,
             color="#4CAF50", alpha_fill=0.2, linewidth=0.9 * lw_scale,
             label=bot_lbl)
+    if "bottom" in plotted_types: plotted_types.remove("bottom")
 
+    # Pass 3: draw ALL Total layers LAST (always on top)
+    for i, orig_i, p, ptype, frac_top, area_tot in peak_data:
+        lbl = "Total" if "total" not in plotted_types else None
+        plotted_types.add("total")
+        lw_scale = 3 if highlight_idx is not None and orig_i == highlight_idx else 1
         plot_peak_waveform_model(p, t0=t0, ax=ax,
             color="#F44336", alpha_fill=0.35, linewidth=1.2 * lw_scale, label=lbl)
 
