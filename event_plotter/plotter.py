@@ -675,7 +675,7 @@ def plot_event_full(
     event_area_per_channel: Optional[np.ndarray] = None,
     s1_hp_kwargs: Optional[dict] = None,
     s2_hp_kwargs: Optional[dict] = None,
-    figsize: Tuple[float, float] = (14, 12),
+    figsize: Tuple[float, float] = (14, 16),
     show_largest: int = 200,
     title: Optional[str] = None,
     fig: Optional[plt.Figure] = None,
@@ -728,16 +728,19 @@ def plot_event_full(
 
     _rsize = style.plt.rcParams["font.size"]
 
-    # ── Row 1: Event waveform (3-layer: top+bottom=total) ──
-    gs = gridspec.GridSpec(2, 2, figure=fig,
-                           height_ratios=[1.0, 1.0],
+    # ── Row 1: Event waveform (linear) ──
+    # ── Row 2: Event waveform (log scale) ──
+    # ── Row 3: PMT hit patterns ──
+    gs = gridspec.GridSpec(3, 2, figure=fig,
+                           height_ratios=[1.0, 1.0, 1.0],
                            hspace=0.5, wspace=0.4)
 
-    ax_wf = fig.add_subplot(gs[0, :])  # full width waveform
-    ax_pmt_top = fig.add_subplot(gs[1, 0])
-    ax_pmt_bot = fig.add_subplot(gs[1, 1])
+    ax_wf = fig.add_subplot(gs[0, :])  # full width waveform (linear)
+    ax_wf_log = fig.add_subplot(gs[1, :])  # full width waveform (log)
+    ax_pmt_top = fig.add_subplot(gs[2, 0])
+    ax_pmt_bot = fig.add_subplot(gs[2, 1])
 
-    fig._peak_axes = [ax_wf]
+    fig._peak_axes = [ax_wf, ax_wf_log]
 
     t0_ev = int(event["time"])
     if len(peaks):
@@ -745,6 +748,13 @@ def plot_event_full(
             peaks, t0=t0_ev, ax=ax_wf, show_largest=show_largest,
             raw_records=raw_records, to_pe=to_pe, pmt_positions=pmt_positions,
             highlight_idx=highlight_peak_idx,
+        )
+        _draw_3layer_waveform(
+            peaks, t0=t0_ev, ax=ax_wf_log, show_largest=show_largest,
+            raw_records=raw_records, to_pe=to_pe, pmt_positions=pmt_positions,
+            highlight_idx=highlight_peak_idx,
+        )
+        ax_wf_log.set_yscale("symlog", linthresh=10, linscale=0.5)
         )
     ax_wf.set_title("Event waveform: top + bottom + total",
                     fontsize=_rsize + 3, fontweight="bold")
