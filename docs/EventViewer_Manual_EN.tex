@@ -1,0 +1,327 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{geometry}
+\usepackage{longtable}
+\usepackage{enumitem}
+\geometry{margin=2.5cm}
+\definecolor{codebg}{rgb}{0.95,0.95,0.95}
+\lstset{
+  backgroundcolor=\color{codebg},
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  frame=single,
+  columns=flexible,
+  language=Python
+}
+\title{XENONnT Event Viewer \\ Design, Implementation \& Optimization}
+\author{}
+\date{May 2026}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\newpage
+
+\section{Overview}
+
+\subsection{Background}
+XENONnT is a dark matter detection experiment at Gran Sasso, Italy. Researchers need an interactive tool to browse event waveforms and PMT hit patterns. EventViewer is a cross-platform desktop app that loads pre-extracted NPZ data bundles for offline viewing.
+
+\subsection{Core Features}
+\begin{itemize}[itemsep=2pt]
+\item \textbf{Event browser}: left panel with S1/S2 area filters, event number search
+\item \textbf{Peak list:} sortable table (Type, Area PE, Width ns, Rise ns, Time ns)
+\item \textbf{Main peak markers:} bold Main S1/Main S2 in peak list
+\item \textbf{3-layer waveform:} Top PMT (blue \#2196F3) + Bottom (green \#4CAF50) + Total (red \#F44336)
+\item \textbf{Interactive zoom:} click waveform peak region or table row for single-peak zoom
+\item \textbf{Legend toggle:} click legend text to show/hide waveform layers
+\item \textbf{Scroll zoom:} mouse wheel on waveform panels
+\item \textbf{Page zoom:} +/- buttons or Ctrl+scroll adjust DPI
+\item \textbf{PMT ID hover:} hover over PMT scatter dots shows channel ID
+\item \textbf{PDF/PNG export:} Ctrl+S saves to Desktop; toolbar save button
+\item \textbf{Run Selector:} dropdown auto-scans for bundled NPZ files
+\item \textbf{Multi-format:} NPZ (peak\_basics) model and NPZ (real peaks) from DALI
+\end{itemize}
+
+\subsection{Tech Stack}
+Python 3.9+, PySide6, Matplotlib, NumPy, optional Strax/Straxen, PyInstaller.
+
+\section{Architecture}
+
+\subsection{Layered Design}
+\begin{lstlisting}[language=text]
+run_app.py                          # Entry, CLI args, auto-load
++-- event_viewer_app/               # Qt GUI (PySide6)
+|   +-- main_window.py              # MainWindow, PeakListWidget, RunSelector
+|   +-- event_browser.py            # Event list, search, filters
+|   +-- event_canvas.py             # Canvas + mouse/keyboard events
+|   +-- data_manager.py             # Data loading \& caching
+|   +-- qt_compat.py                # PySide6/PySide2 compat
++-- event_plotter/                  # Plotting engine
+|   +-- plotter.py                  # Core plotting functions
+|   +-- io.py                       # Data I/O, PMT geometry
+|   +-- style.py                    # Colors, fonts, rcParams
++-- scripts/                        # CLI + build tools
+|   +-- extract_event_bundle.py     # Strax -> NPZ extraction
+|   +-- build_mac.sh                # macOS build script
++-- dali_probe/                     # DALI data probes
+|   +-- extract_peaks_bundle.py     # Real peaks extraction
+|   +-- report.md                   # Probe findings
++-- debug_reports/                  # Debug test suite
+    +-- 00_SUMMARY.md through 04_ui_simulation_tests.txt
+\end{lstlisting}
+
+\subsection{Data Flow}
+\begin{enumerate}[itemsep=2pt]
+\item NPZ file $\rightarrow$ DataManager.open\_npz\_bundle()
+\item Loads events[], peaks\_list[], eac\_list[], pmt\_positions, to\_pe
+\item EventBrowser fills event list, auto-selects first event
+\item User clicks event $\rightarrow$ MainWindow.\_on\_event\_selected() $\rightarrow$ plot\_event\_full()
+\item Peak click $\rightarrow$ EventCanvas hit test $\rightarrow$ peak\_clicked Signal $\rightarrow$ plot\_peak\_zoom()
+\end{enumerate}
+
+\subsection{Data Types}
+
+\begin{longtable}{|l|c|c|c|p{2.5cm}|}
+\hline
+\textbf{Source} & \textbf{Waveform} & \textbf{PMT Pattern} & \textbf{data\_top} & \textbf{Origin} \\
+\hline
+NPZ peak\_basics & Model pulse (bi-exp) & EAC scaled & No & Midway3 processed \\
+NPZ real peaks & Real \texttt{data} samples & Real \texttt{area\_per\_channel} & Yes & DALI \\
+Strax (cutax) & Real \texttt{data} & Real \texttt{area\_per\_channel} & Yes & Online/offline \\
+\hline
+\caption{Data source comparison}
+\end{longtable}
+
+\subsection{NPZ Bundle Format}
+Keys: \texttt{events}, \texttt{peaks\_list} (object dtype), \texttt{eac\_list} (optional), \texttt{pmt\_x/y/array/i}, \texttt{to\_pe}, \texttt{run\_id}, \texttt{waveform\_source} (new: ``real\_peaks'' or ``model'').
+
+\section{Key Implementation Details}
+
+\subsection{Canvas Management: Solving Ghosting}
+
+\subsubsection{Problem Evolution}
+\begin{enumerate}[itemsep=2pt]
+\item \textbf{fig.clear()} reuse: Old content persisted between renders --- ghosting.
+\item \textbf{fig.clf()}: Better but edge artifacts remained during scroll.
+\item \textbf{delaxes}: Remove axes individually. Ghosting persisted.
+\item \textbf{QScrollArea}: Wrapped canvas, \texttt{setWidgetResizable(False)}. Colored pixel artifacts, garbled display.
+\item \textbf{Final: Full replacement}. Each \texttt{clear()} creates a new Figure + FigureCanvasQTAgg. Old canvas destroyed via \texttt{deleteLater()}.
+\end{enumerate}
+
+\begin{lstlisting}[language=Python, caption={EventCanvas.clear() final implementation}]
+def clear(self):
+    if self._hover_annot:
+        try: self._hover_annot.remove()
+        except Exception: pass
+        self._hover_annot = None
+    old_canvas = self._canvas
+    self._fig = Figure(figsize=(16, 10), facecolor="white", dpi=self._base_dpi)
+    self._canvas = FigureCanvasQTAgg(self._fig)
+    self._canvas.mpl_connect('button_press_event', self._on_click)
+    self._canvas.mpl_connect('scroll_event', self._on_scroll)
+    self._canvas.mpl_connect('motion_notify_event', self._on_hover)
+    layout = self.layout()
+    if layout:
+        idx = layout.indexOf(old_canvas)
+        if idx >= 0: layout.insertWidget(idx, self._canvas)
+        else: layout.addWidget(self._canvas)
+    old_canvas.setParent(None)
+    old_canvas.deleteLater()
+    if self._toolbar is not None:
+        self._toolbar.canvas = self._canvas  # Fix save button
+    self._update_canvas_size()
+\end{lstlisting}
+
+\subsection{Interaction System}
+
+\subsubsection{Peak Click Hit Testing}
+Each peak stores its time region in \texttt{ax.\_peak\_regions} during rendering. Originally used strict interval matching (\texttt{x\_start <= x <= x\_end}), but narrow peaks ($<1\mu$s) are under 1 pixel wide on screen. Final approach: proximity search (500 $\mu$s tolerance) with interval matching as fallback.
+
+\subsubsection{Legend Toggle}
+Three-layer waveform legend text is clickable. Detected via \texttt{txt.contains(event)} in \texttt{\_on\_click}. Toggles \texttt{set\_visible()} on the corresponding artist group.
+
+\subsubsection{Scroll Zoom}
+Mouse wheel on waveform axes adjusts x/y limits by factor 1.25 (zoom in) / 0.8 (zoom out), centered at cursor position.
+
+\subsubsection{PMT ID Hover}
+\texttt{motion\_notify\_event} checks \texttt{coll.contains(event)} for PMT scatter collections. On hit, shows yellow annotation with PMT channel ID.
+
+\subsection{Peak List Sorting}
+QTableWidget defaults to string sorting. Custom \texttt{NumericItem} class overrides \texttt{\_\_lt\_\_} for numeric comparison. Each row stores original peak index via \texttt{Qt.UserRole} for correct click mapping.
+
+\subsection{Keyboard Shortcuts}
+Direction keys consumed by QListWidget/QTableWidget. Solution: QShortcut with WindowShortcut context for Left/Right (event navigation) and Escape (return to overview).
+
+\subsection{Export}
+Evolved from QFileDialog (z-order issues in .app) to direct Desktop save with auto-incrementing filename. Toolbar save fixed by updating \texttt{self.\_toolbar.canvas} after canvas replacement. PDF backend added via \texttt{--hidden-import}.
+
+\subsection{PMT Hit Pattern}
+Circle radius auto-computed from PMT positions (was hardcoded 47.9cm, actual max 65.6cm). Colorbar fixed: \texttt{plt.colorbar()} replaced with \texttt{ax.figure.colorbar()} to prevent wrong-figure attachment. Marker size iterations: 50 $\to$ 25 $\to$ 12 $\to$ 25 $\to$ 60 $\to$ 120.
+
+\subsection{Font \& Style Optimization}
+
+\begin{longtable}{|l|c|c|c|}
+\hline
+\textbf{Iteration} & \textbf{Base Font} & \textbf{Legend Font} & \textbf{Axes Width} \\
+\hline
+Initial & 9pt & +0 (9pt) & 1.5 \\
+Round 1 & 11pt & +3 (14pt) & 2.0 \\
+Round 2 & 11pt & +6 (17pt) & 2.0 \\
+Final & 11pt & +14 (25pt) & 2.0 \\
+\hline
+\caption{Font evolution}
+\end{longtable}
+
+Legend frame removed entirely in final version. Title font increased from \texttt{\_rsize+1} to \texttt{\_rsize+3}, suptitle to \texttt{\_rsize+4}.
+
+\subsection{Waveform Line Widths}
+
+\begin{longtable}{|l|c|c|c|}
+\hline
+\textbf{Component} & \textbf{Initial} & \textbf{Round 1} & \textbf{Final} \\
+\hline
+Event Top/Bot & 0.25 & 0.75 & 0.75 \\
+Event Total & 0.35 & 1.05 & 1.05 \\
+Zoom Top/Bot & 0.8 & 2.4 & 2.4 \\
+Zoom Total & 1.5 & 4.5 & 4.5 \\
+Real data step & [0.45,0.45,0.8] & [1.35,1.35,2.4] & [1.35,1.35,2.4] \\
+\hline
+\caption{Line width evolution (all 3x final)}
+\end{longtable}
+
+\subsection{Waveform Colors}
+Changed from Nature journal palette (violet/orange/gray) to vibrant Material Design colors: Top PMT=\#2196F3 (Blue), Bottom=\#4CAF50 (Green), Total=\#F44336 (Red).
+
+\section{Data Exploration}
+
+\subsection{DALI Probe}
+DALI (\texttt{ssh dali}) is a XENON data node. Findings:
+\begin{itemize}[itemsep=2pt]
+\item Raw data: only raw\_records\_aqmon (monitor), no TPC physics raw\_records
+\item Processed data: peaks with real \texttt{data}, \texttt{data\_top}, \texttt{area\_per\_channel} (runs 043864, 044116, etc.)
+\item peaks dtype: 19 fields including waveform data (200 samples, PE/sample)
+\end{itemize}
+
+\subsection{Midway3 Probe}
+Midway3 (\texttt{ssh midway3}) is the main compute cluster:
+\begin{itemize}[itemsep=2pt]
+\item \texttt{/project/lgrandi/xenonnt/processed/}: 2193 runs with peak\_basics
+\item \texttt{/project2/}: additional runs
+\item RunDB query: 73,925 runs, 0 with stored raw\_records/records locally
+\item Run 023756: only raw\_records\_aqmon, no TPC raw\_records
+\item 280 runs have peaklets (with data, area\_per\_channel)
+\end{itemize}
+
+\subsection{Data Hierarchy}
+\begin{lstlisting}[language=text]
+raw_records -> records -> peaklets -> peaks -> peak_basics
+   (raw)       (ADC)     (per-PMT)  (merged)   (metadata)
+\end{lstlisting}
+Midway3 stores: peak\_basics (lightweight metadata), event\_info, EAC. DALI additionally stores: peaklets, peaks (with waveform samples).
+
+\subsection{Real Data Extraction}
+\begin{enumerate}[itemsep=2pt]
+\item SSH to DALI
+\item Source XENON environment: \texttt{/cvmfs/xenon.opensciencegrid.org/releases/nT/el7.2025.07.2/setup.sh}
+\item Run \texttt{dali\_probe/extract\_peaks\_bundle.py --run 043864 --n 200}
+\item Output NPZ: 9.1MB, 200 events, 3566 peaks
+\item Transfer via rsync (multiple retries needed)
+\end{enumerate}
+
+\subsection{Transfer Issues}
+SCP from Midway3 frequently corrupts files $>$5MB. Workaround: rsync with resume, multiple retries, smaller samples (5-50 events) for quick validation.
+
+\section{Testing \& Validation}
+
+\subsection{Automated Test Suite}
+Located at \texttt{debug\_reports/}:
+
+\begin{longtable}{|l|c|c|c|}
+\hline
+\textbf{Report} & \textbf{Tests} & \textbf{Result} & \textbf{Focus} \\
+\hline
+01\_static\_analysis & 11 files & 2 issues & Imports, paths, print stmts \\
+02\_data\_pipeline & 9 & ALL PASS & Mode switch, cache, index \\
+03\_rendering\_edges & 8 & ALL PASS & Empty peaks, memory, DPI \\
+04\_ui\_simulation & 8 & ALL PASS & Sorting, UserRole, markers \\
+\hline
+\caption{Debug reports}
+\end{longtable}
+
+\subsection{End-to-End Verification}
+\begin{itemize}[itemsep=2pt]
+\item 023756 NPZ (model): 50 events, 69 peaks/event --- all loadable
+\item 043864 real peaks (5ev): 5 events, real waveforms --- verified
+\item 043864 real peaks (200ev): 200 events, 3566 peaks --- verified
+\item Cross-switch: NPZ $\to$ real peaks $\to$ NPZ --- cache cleared correctly
+\item 20 event switches: no rendering errors
+\item 50 peak zooms: no area mismatches
+\item 100 renders: no memory leak detected
+\end{itemize}
+
+\section{PyInstaller Packaging}
+
+\subsection{Build Flags}
+\begin{lstlisting}[language=bash]
+pyinstaller --onedir --windowed --name XENONnT-EventViewer \
+  --add-data "scripts/output/events_run_023756.npz:." \
+  --hidden-import matplotlib.backends.backend_pdf \
+  --hidden-import matplotlib.backends.backend_agg \
+  --collect-submodules numpy --collect-data matplotlib \
+  --exclude-module tkinter --exclude-module PyQt5 \
+  --exclude-module scipy --exclude-module pandas \
+  --distpath dist --workpath /tmp/pyinstaller_mac run_app.py
+\end{lstlisting}
+
+\subsection{Version Injection}
+\begin{lstlisting}[language=bash]
+/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString 2.0.0" \
+  "dist/XENONnT-EventViewer.app/Contents/Info.plist"
+\end{lstlisting}
+
+\subsection{CI (GitHub Actions)}
+Triggered by \texttt{v*} tag push. Four jobs: Ubuntu Linux, Windows, macOS ARM64, macOS x64.
+
+\section{Complete Pitfall Log}
+
+\begin{enumerate}[itemsep=4pt]
+\item \textbf{QScrollArea ghosting}: Tried setWidgetResizable(True/False), setFixedSize, repaint(), draw\_idle() vs draw(). Failed. Final: full Figure+Canvas replacement.
+\item \textbf{Toolbar save broken}: Canvas replaced but toolbar still referenced old canvas. Fix: update toolbar.canvas.
+\item \textbf{PDF backend missing}: PyInstaller excluded backend\_pdf. Fix: add --hidden-import.
+\item \textbf{Peak list string sort}: NumericItem class + UserRole for original indices.
+\item \textbf{.app opens Terminal}: --onedir --windowed instead of --onefile.
+\item \textbf{strax import error}: Removed strax from hidden\_imports.
+\item \textbf{PMT circle mismatch}: Auto-compute from PMT positions, not hardcoded 47.9cm.
+\item \textbf{plt.colorbar wrong figure}: Use ax.figure.colorbar() everywhere.
+\item \textbf{Inline comments break syntax}: Global color replace inserted comments mid-function-call. Manual cleanup required.
+\item \textbf{DALI/Midway3 transfer}: SCP corrupts large files. Rsync + retries.
+\item \textbf{3-layer PMT all zeros}: EAC loading was guarded by strax-mode check. Removed guard.
+\item \textbf{Event waveform blank}: Build cache contained old source. Clean rebuild fixed it.
+\item \textbf{Scroll wheel garbled}: Trackpad momentum scroll overwhelmed draw\_idle(). Switched to draw().
+\item \textbf{Event/peak switch ghosting}: clf() + draw() leaves artifacts in Qt. Full canvas replacement.
+\item \textbf{Left panel frozen}: QSplitter stretchFactor(0,0) + maxWidth(320). Changed to (0,1) and maxWidth(500).
+\end{enumerate}
+
+\section{Known Limitations}
+\begin{itemize}[itemsep=2pt]
+\item Run 023756 has no TPC raw\_records; waveforms are model-generated
+\item Real peaks data must be manually extracted from DALI and transferred
+\item Strax mode loads synchronously on main thread; large runs may freeze UI
+\item Windows/Linux require CI or native build; cannot cross-compile from macOS
+\item .app uses ad-hoc signing; Gatekeeper may warn on first launch
+\item Run Selector scan paths may not include external NPZ files in packaged app
+\end{itemize}
+
+\section{References}
+\begin{itemize}[itemsep=2pt]
+\item XENONnT Straxen docs: \url{https://straxen.readthedocs.io}
+\item PySide6: \url{https://doc.qt.io/qtforpython-6/}
+\item Matplotlib: \url{https://matplotlib.org/stable/}
+\item PyInstaller: \url{https://pyinstaller.org/en/stable/}
+\end{itemize}
+
+\end{document}

@@ -1,0 +1,26 @@
+============================================================
+RENDERING EDGE CASE TESTS
+============================================================
+
+Generated: 2026-05-28
+
+### Test 1: Event overview 3-layer waveform
+  PASS: scripts/output/events_run_023756.npz legend contains Top, Bottom, Total
+  PASS: dali_probe/events_run_043864_real_peaks_200ev.npz legend contains Top, Bottom, Total
+
+### Test 2: Real waveform detection
+  PASS: 023756 displays model waveforms from peak_basics
+  PASS: 043864 real peaks displays real peak waveform [PE/ns]
+
+### Test 3: Peak zoom rendering
+  PASS: first events render peak zoom without exception for model and real bundles
+
+### Test 4: PDF backend smoke test
+  PASS: figure saved to PDF locally; output size > 1 KB
+
+### Test 5: QScrollArea artifact risk
+  PASS: QScrollArea fixed-size path removed from EventCanvas
+
+============================================================
+ALL RENDERING TESTS PASSED
+============================================================

@@ -1,0 +1,34 @@
+============================================================
+DATA PIPELINE INTEGRITY TESTS
+============================================================
+
+### Test 1: Basic NPZ load
+  PASS: 50 events loaded
+
+### Test 2: Event lookup by number
+  PASS: event 38991 loaded, S1=2110975 PE
+
+### Test 3: Peak index consistency
+  PASS: 69 peaks loaded, all have area field
+
+### Test 4: Event Area Per Channel consistency
+  EAC: S1 sum=2110968, S2 sum=196718528
+  Event: S1=2110975, S2=196716768
+  PASS: EAC data consistent
+
+### Test 5: Mode switching cache cleanup
+  PASS: re-opening bundle preserves data (69 peaks)
+
+### Test 6: Peak index mapping
+  PASS: index mapping correct for first 10 peaks
+
+### Test 7: All events loadable
+  PASS: all 50 events loadable with peaks
+
+### Test 8: Edge cases
+  PASS: non-existent event returns None
+  INFO: event 38991 has unknown-type peaks: True
+
+============================================================
+ALL DATA PIPELINE TESTS PASSED
+============================================================

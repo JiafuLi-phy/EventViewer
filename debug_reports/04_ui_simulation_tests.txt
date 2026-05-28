@@ -1,0 +1,27 @@
+============================================================
+UI LOGIC TESTS (offscreen Qt)
+============================================================
+
+Generated: 2026-05-28
+
+### Test 1: Run Selector source scan
+  PASS: source tree scan finds 023756 bundle
+  PASS: source tree scan finds 043864 200ev real peaks bundle
+  PASS: duplicate real paths are de-duplicated
+
+### Test 2: PeakListWidget sorting and UserRole mapping
+  PASS: Area-desc sorting preserves original peak index
+  PASS: Time-asc sorting preserves original peak index for ns-scale timestamps
+
+### Test 3: Event/peak interaction smoke test
+  PASS: 023756 first events render overview and peak zoom
+  PASS: 043864 real peaks first events render overview and peak zoom
+
+### Test 4: Strax background loading UI hooks
+  PASS: loading state disables strax controls
+  PASS: loading state restores controls
+  PASS: strax loader uses QThread worker and preloads peaks outside GUI thread
+
+============================================================
+ALL UI TESTS PASSED
+============================================================

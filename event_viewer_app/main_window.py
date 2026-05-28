@@ -12,7 +12,7 @@ from .qt_compat import (
     QWidget, QVBoxLayout, QShortcut, QComboBox,
     QGroupBox,
 )
-from .qt_compat import Qt
+from .qt_compat import Qt, QObject, QThread, Signal, Slot
 from .qt_compat import QAction, QKeySequence
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
@@ -24,6 +24,27 @@ from event_viewer_app.data_manager import DataManager
 from event_viewer_app.event_browser import EventBrowser
 from event_viewer_app.event_canvas import EventCanvas
 from event_plotter import plotter, style
+
+
+class StraxLoadWorker(QObject):
+    """Background worker for slow strax run initialization."""
+
+    finished = Signal(object, int, str)
+    failed = Signal(str, str)
+
+    def __init__(self, run_id: str):
+        super().__init__()
+        self._run_id = run_id
+
+    @Slot()
+    def run(self):
+        try:
+            dm = DataManager()
+            n = dm.open_strax_run(self._run_id, peak_data_type="peaks")
+            dm.preload_peaks()
+            self.finished.emit(dm, n, self._run_id)
+        except Exception as e:
+            self.failed.emit(self._run_id, str(e))
 
 
 class PeakListWidget(QWidget):
@@ -184,6 +205,8 @@ class MainWindow(QMainWindow):
         self._peaks_for_event = None     # all peaks for current event (original order)
         self._eac_for_event = None       # event_area_per_channel for current event
         self._raw_records_for_event = None
+        self._strax_thread = None
+        self._strax_worker = None
 
         style.apply_style(font_size=11, axes_linewidth=2.0)
 
@@ -269,6 +292,7 @@ class MainWindow(QMainWindow):
         self._browser.setMinimumWidth(220)
         self._browser.event_selected.connect(self._on_event_selected)
         self._browser.data_source_changed.connect(self._on_data_source_changed)
+        self._browser.strax_run_requested.connect(self._start_strax_load)
 
         self._peak_list = PeakListWidget()
         self._peak_list.setMaximumWidth(500)
@@ -325,6 +349,10 @@ class MainWindow(QMainWindow):
         ]
         if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
             search_dirs.insert(0, sys._MEIPASS)
+        if getattr(sys, 'frozen', False):
+            exe_dir = os.path.dirname(sys.executable)
+            search_dirs.insert(0, os.path.abspath(os.path.join(exe_dir, '..', 'Resources')))
+            search_dirs.insert(0, os.path.abspath(os.path.join(exe_dir, '..', 'Frameworks')))
 
         self._run_combo.blockSignals(True)
         self._run_combo.clear()
@@ -338,10 +366,11 @@ class MainWindow(QMainWindow):
                 for f in sorted(os.listdir(d)):
                     if not f.endswith('.npz'):
                         continue
-                    full = os.path.join(d, f)
-                    if full in seen:
+                    full = os.path.abspath(os.path.join(d, f))
+                    canonical = os.path.realpath(full)
+                    if canonical in seen:
                         continue
-                    seen.add(full)
+                    seen.add(canonical)
                     try:
                         b = np.load(full, allow_pickle=True)
                         run_id = str(b.get('run_id', '?'))
@@ -394,19 +423,6 @@ class MainWindow(QMainWindow):
         if label not in self._run_paths:
             self._run_paths[label] = path
             self._run_combo.addItem(label)
-        path, _ = QFileDialog.getOpenFileName(
-            self, "Open Event Bundle", "",
-            "NPZ Bundles (*.npz);;All Files (*)"
-        )
-        if not path:
-            return
-        try:
-            n = self._dm.open_npz_bundle(path)
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to open bundle:\n{e}")
-            return
-        self._browser._on_data_loaded(n, f"Bundle: {os.path.basename(path)}")
-        self._status_label.setText(f"Loaded {n} events from {os.path.basename(path)}")
 
     def _on_open_npz(self):
         path = QFileDialog.getExistingDirectory(self, "Select .npz Data Directory")
@@ -426,19 +442,63 @@ class MainWindow(QMainWindow):
         )
         if not ok or not run_id.strip():
             return
-        try:
-            n = self._dm.open_strax_run(run_id.strip(), peak_data_type="peaks")
-        except Exception as e:
-            QMessageBox.critical(
-                self, "Error",
-                "Failed to load this strax run.\n\n"
-                "Direct strax loading needs strax/cutax plus a mounted XENONnT data path "
-                "such as /dali/lgrandi/xenonnt/processed or /project/lgrandi/xenonnt/processed.\n\n"
-                f"Run: {run_id}\nDetails: {e}"
-            )
+        self._start_strax_load(run_id.strip())
+
+    def _start_strax_load(self, run_id: str):
+        """Load a strax run in a worker thread so the GUI stays responsive."""
+        if self._strax_thread is not None:
+            QMessageBox.information(self, "Loading", "A strax run is already loading.")
             return
+        self._set_loading(True, f"Loading strax run {run_id} ...")
+        self._canvas.set_message(f"Loading strax run {run_id} ...")
+
+        self._strax_thread = QThread(self)
+        self._strax_worker = StraxLoadWorker(run_id)
+        self._strax_worker.moveToThread(self._strax_thread)
+        self._strax_thread.started.connect(self._strax_worker.run)
+        self._strax_worker.finished.connect(self._on_strax_loaded)
+        self._strax_worker.failed.connect(self._on_strax_failed)
+        self._strax_worker.finished.connect(self._strax_thread.quit)
+        self._strax_worker.failed.connect(self._strax_thread.quit)
+        self._strax_thread.finished.connect(self._cleanup_strax_thread)
+        self._strax_thread.start()
+
+    def _set_loading(self, loading: bool, text: str = ""):
+        self._run_combo.setEnabled(not loading)
+        self._browser.set_loading(loading, text or None)
+        if text:
+            self._status_label.setText(text)
+
+    def _on_strax_loaded(self, dm: DataManager, n: int, run_id: str):
+        self._dm = dm
+        self._browser._dm = dm
+        self._view_mode = "overview"
+        self._selected_peak_idx = None
+        self._peaks_for_event = None
+        self._eac_for_event = None
+        self._raw_records_for_event = None
         self._browser._on_data_loaded(n, f"Strax run: {run_id}")
         self._status_label.setText(f"Loaded {n} events from run {run_id}")
+        self._set_loading(False)
+
+    def _on_strax_failed(self, run_id: str, message: str):
+        self._set_loading(False)
+        self._canvas.set_message("Select an event from the list")
+        QMessageBox.critical(
+            self, "Error",
+            "Failed to load this strax run.\n\n"
+            "Direct strax loading needs strax/cutax plus a mounted XENONnT data path "
+            "such as /dali/lgrandi/xenonnt/processed or /project/lgrandi/xenonnt/processed.\n\n"
+            f"Run: {run_id}\nDetails: {message}"
+        )
+
+    def _cleanup_strax_thread(self):
+        if self._strax_worker is not None:
+            self._strax_worker.deleteLater()
+        if self._strax_thread is not None:
+            self._strax_thread.deleteLater()
+        self._strax_worker = None
+        self._strax_thread = None
 
     def _on_data_source_changed(self):
         """Called when the browser changes data source."""
@@ -468,7 +528,8 @@ class MainWindow(QMainWindow):
 
             # Always load EAC (not just for strax mode)
             eac = self._dm.get_event_area_per_channel(event_number)
-            raw_records = self._dm.get_raw_records(event_number)
+            # raw_records can be very large; avoid blocking the GUI in live strax mode.
+            raw_records = None if self._dm.mode == "strax" else self._dm.get_raw_records(event_number)
 
             # Cache for interaction
             self._current_event = event_number

@@ -12,6 +12,7 @@ echo "=== Building ==="
   --windowed \
   --name XENONnT-EventViewer \
   --add-data "scripts/output/events_run_023756.npz:." \
+  --add-data "dali_probe/events_run_043864_real_peaks_200ev.npz:." \
   --hidden-import PySide6.QtCore \
   --hidden-import PySide6.QtGui \
   --hidden-import PySide6.QtWidgets \

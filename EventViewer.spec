@@ -11,6 +11,10 @@ block_cipher = None
 
 # Collect matplotlib data
 mpl_data = collect_data_files("matplotlib", subdir="mpl-data")
+bundle_data = [
+    (os.path.join(_PROJ, "scripts", "output", "events_run_023756.npz"), "."),
+    (os.path.join(_PROJ, "dali_probe", "events_run_043864_real_peaks_200ev.npz"), "."),
+]
 
 # Collect hidden imports
 hiddenimports = [
@@ -21,6 +25,8 @@ hiddenimports = [
     "PySide6.QtNetwork",
     # matplotlib backends
     "matplotlib.backends.backend_qtagg",
+    "matplotlib.backends.backend_pdf",
+    "matplotlib.backends.backend_agg",
     # numpy (collect all submodules for numpy 2.x compat)
     *collect_submodules("numpy"),
 ]
@@ -29,7 +35,7 @@ a = Analysis(
     [os.path.join(_PROJ, "run_app.py")],
     pathex=[_PROJ],
     binaries=[],
-    datas=mpl_data,
+    datas=mpl_data + bundle_data,
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},

@@ -7,6 +7,7 @@ pkg/
 build/
 *.egg-info/
 *.spec.bak
+XENONnT-EventViewer.spec
 
 # PyInstaller
 /tmp/pyinstaller_*/
@@ -38,3 +39,10 @@ resource_cache/
 # OS
 .DS_Store
 Thumbs.db
+
+# TeX build byproducts
+docs/*.aux
+docs/*.log
+docs/*.out
+docs/*.toc
+docs/*.bak

@@ -52,7 +52,11 @@ def main():
         # Check bundled NPZ first (PyInstaller .app)
         for candidate in [
             os.path.join(getattr(sys, "_MEIPASS", ""), "events_run_023756.npz"),
+            os.path.join(getattr(sys, "_MEIPASS", ""), "events_run_043864_real_peaks_200ev.npz"),
             os.path.join(_APP_DIR, "events_run_023756.npz"),
+            os.path.join(_APP_DIR, "events_run_043864_real_peaks_200ev.npz"),
+            os.path.abspath(os.path.join(_APP_DIR, "..", "Resources", "events_run_023756.npz")),
+            os.path.abspath(os.path.join(_APP_DIR, "..", "Resources", "events_run_043864_real_peaks_200ev.npz")),
             os.path.join(os.getcwd(), "events_run_023756.npz"),
         ]:
             if os.path.isfile(candidate):

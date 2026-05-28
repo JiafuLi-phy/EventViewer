@@ -42,10 +42,13 @@ case "$PLATFORM" in
             --onedir --windowed \
             --name "XENONnT-EventViewer" \
             --add-data "scripts/output/events_run_023756.npz:." \
+            --add-data "dali_probe/events_run_043864_real_peaks_200ev.npz:." \
             --hidden-import PySide6.QtCore \
             --hidden-import PySide6.QtGui \
             --hidden-import PySide6.QtWidgets \
             --hidden-import matplotlib.backends.backend_qtagg \
+            --hidden-import matplotlib.backends.backend_pdf \
+            --hidden-import matplotlib.backends.backend_agg \
             --collect-submodules numpy \
             --collect-data matplotlib \
             --exclude-module tkinter \
@@ -60,6 +63,7 @@ case "$PLATFORM" in
         mkdir -p pkg/XENONnT-EventViewer-macos
         cp -R dist/XENONnT-EventViewer.app pkg/XENONnT-EventViewer-macos/
         cp scripts/output/events_run_023756.npz pkg/XENONnT-EventViewer-macos/ 2>/dev/null || true
+        cp dali_probe/events_run_043864_real_peaks_200ev.npz pkg/XENONnT-EventViewer-macos/ 2>/dev/null || true
         cp README.md pkg/XENONnT-EventViewer-macos/ 2>/dev/null || true
         hdiutil create -volname "XENONnT-EventViewer" \
             -srcfolder pkg/XENONnT-EventViewer-macos \

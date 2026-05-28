@@ -1,0 +1,90 @@
+============================================================
+STATIC CODE ANALYSIS
+============================================================
+
+event_viewer_app/main_window.py: 3 classes, 21 functions, 0 potential issues
+
+event_viewer_app/data_manager.py: 1 classes, 17 functions, 2 potential issues
+  line 285: lazy import 'strax' inside function
+  line 334: lazy import 'strax' inside function
+
+event_viewer_app/event_browser.py: 1 classes, 11 functions, 0 potential issues
+
+event_viewer_app/event_canvas.py: 1 classes, 12 functions, 0 potential issues
+
+event_viewer_app/qt_compat.py: 0 classes, 0 functions, 0 potential issues
+
+event_plotter/plotter.py: 0 classes, 25 functions, 5 potential issues
+  line 351: lazy import 'io' inside function
+  line 461: lazy import 'io' inside function
+  line 852: lazy import 'io' inside function
+  line 1256: lazy import 'io' inside function
+  line 1369: lazy import 'datetime' inside function
+
+event_plotter/io.py: 0 classes, 12 functions, 7 potential issues
+  line 405: print() call - debug leftover?
+  line 62: lazy import 'cutax' inside function
+  line 99: lazy import 'strax' inside function
+  line 142: lazy import 'straxen' inside function
+  line 156: lazy import 'straxen' inside function
+  line 221: lazy import 'straxen' inside function
+  line 244: lazy import 'strax' inside function
+
+event_plotter/style.py: 0 classes, 5 functions, 2 potential issues
+  line 183: print() call - debug leftover?
+  line 175: lazy import 'warnings' inside function
+
+run_app.py: 0 classes, 1 functions, 2 potential issues
+  line 83: print() call - debug leftover?
+  line 44: lazy import 'MainWindow' inside function
+
+scripts/extract_event_bundle.py: 0 classes, 2 functions, 17 potential issues
+  line 36: print() call - debug leftover?
+  line 38: print() call - debug leftover?
+  line 62: print() call - debug leftover?
+  line 67: print() call - debug leftover?
+  line 71: print() call - debug leftover?
+  line 73: print() call - debug leftover?
+  line 146: print() call - debug leftover?
+  line 151: print() call - debug leftover?
+  line 152: print() call - debug leftover?
+  line 153: print() call - debug leftover?
+  line 154: print() call - debug leftover?
+  line 53: print() call - debug leftover?
+  line 79: print() call - debug leftover?
+  line 81: print() call - debug leftover?
+  line 124: print() call - debug leftover?
+  ... and 2 more
+
+scripts/plot_events.py: 0 classes, 3 functions, 16 potential issues
+  line 48: print() call - debug leftover?
+  line 61: print() call - debug leftover?
+  line 71: print() call - debug leftover?
+  line 157: print() call - debug leftover?
+  line 58: print() call - debug leftover?
+  line 74: print() call - debug leftover?
+  line 106: print() call - debug leftover?
+  line 111: print() call - debug leftover?
+  line 154: print() call - debug leftover?
+  line 182: print() call - debug leftover?
+  line 85: print() call - debug leftover?
+  line 188: print() call - debug leftover?
+  line 133: print() call - debug leftover?
+  line 135: print() call - debug leftover?
+  line 114: lazy import 'fully_contained_in' inside function
+  ... and 1 more
+
+============================================================
+CROSS-FILE ANALYSIS
+============================================================
+
+Hardcoded paths found: 13
+  /dali/lgrandi/xenonnt/processed/
+  /dali/lgrandi/xenonnt/raw/
+  /project/lgrandi/xenonnt/processed/
+  /project/lgrandi/xenonnt/processed_sr2_offline_round_1/
+  /project/lgrandi/xenonnt/processed_sr2_offline_round_2/
+  /project/lgrandi/xenonnt/processed_sr2_offline_round_3/
+  /project2/lgrandi/xenonnt/processed/
+
+sys.path.insert() calls: 5

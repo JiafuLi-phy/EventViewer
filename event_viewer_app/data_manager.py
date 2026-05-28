@@ -283,25 +283,7 @@ class DataManager:
             if ev is None:
                 return None
             import strax
-            if self._peaks_all is None:
-                try:
-                    if self._strax_context is not None:
-                        self._peaks_all = self._strax_context.get_array(
-                            self._run_id, self._peak_data_type
-                        )
-                    else:
-                        self._peaks_all = io.load_strax_chunks(
-                            self._run_id, self._peak_data_type, self._storage_dirs
-                        )
-                except Exception:
-                    fallback = "peak_basics"
-                    if self._peak_data_type == fallback:
-                        raise
-                    self._peak_data_type = fallback
-                    if self._strax_context is not None:
-                        self._peaks_all = self._strax_context.get_array(self._run_id, fallback)
-                    else:
-                        self._peaks_all = io.load_strax_chunks(self._run_id, fallback, self._storage_dirs)
+            self.preload_peaks()
             peaks = self._peaks_all
             fci = strax.fully_contained_in(peaks, np.array([ev]))
             ev_peaks = peaks[fci == 0]
@@ -309,6 +291,29 @@ class DataManager:
             return ev_peaks
 
         return None
+
+    def preload_peaks(self) -> None:
+        """Load the run-level peaks array for strax mode if it is not cached."""
+        if self._mode != "strax" or self._peaks_all is not None:
+            return
+        try:
+            if self._strax_context is not None:
+                self._peaks_all = self._strax_context.get_array(
+                    self._run_id, self._peak_data_type
+                )
+            else:
+                self._peaks_all = io.load_strax_chunks(
+                    self._run_id, self._peak_data_type, self._storage_dirs
+                )
+        except Exception:
+            fallback = "peak_basics"
+            if self._peak_data_type == fallback:
+                raise
+            self._peak_data_type = fallback
+            if self._strax_context is not None:
+                self._peaks_all = self._strax_context.get_array(self._run_id, fallback)
+            else:
+                self._peaks_all = io.load_strax_chunks(self._run_id, fallback, self._storage_dirs)
 
     def get_pmt_positions(self) -> Optional[np.ndarray]:
         return self._pmt_positions

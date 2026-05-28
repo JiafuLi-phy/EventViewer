@@ -17,6 +17,7 @@ class EventBrowser(QWidget):
 
     event_selected = Signal(int)     # emitted when user selects an event
     data_source_changed = Signal()   # emitted when data source changes
+    strax_run_requested = Signal(str)
 
     def __init__(self, data_manager, parent=None):
         super().__init__(parent)
@@ -116,12 +117,16 @@ class EventBrowser(QWidget):
         run_id = self._run_id_edit.text().strip()
         if not run_id:
             return
-        try:
-            n = self._dm.open_strax_run(run_id, peak_data_type="peaks")
-        except Exception as e:
-            self._src_label.setText(f"Error: {e}")
-            return
-        self._on_data_loaded(n, f"Strax run: {run_id}")
+        self.strax_run_requested.emit(run_id)
+
+    def set_loading(self, loading: bool, text: Optional[str] = None):
+        """Enable/disable browser controls during slow data loading."""
+        self._btn_npz.setEnabled(not loading)
+        self._btn_strax.setEnabled(not loading)
+        self._run_id_edit.setEnabled(not loading)
+        self._btn_filter.setEnabled(not loading)
+        if text is not None:
+            self._src_label.setText(text)
 
     def _on_data_loaded(self, n_events: int, source_desc: str):
         self._src_label.setText(f"{source_desc}\n{n_events} events loaded")
