@@ -46,7 +46,7 @@ class EventCanvas(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(2)
 
-        self._fig = Figure(figsize=(16, 10), facecolor="white", dpi=self._base_dpi)
+        self._fig = Figure(figsize=(16, 18), facecolor="white", dpi=self._base_dpi)
         self._canvas = FigureCanvasQTAgg(self._fig)
         self._canvas.setStyleSheet("background: white;")
         self._canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
@@ -98,7 +98,7 @@ class EventCanvas(QWidget):
             self._hover_annot = None
         # Replace entire figure to eliminate ghosting
         old_canvas = self._canvas
-        self._fig = Figure(figsize=(16, 10), facecolor="white", dpi=self._base_dpi)
+        self._fig = Figure(figsize=(16, 18), facecolor="white", dpi=self._base_dpi)
         self._canvas = FigureCanvasQTAgg(self._fig)
         self._canvas.setStyleSheet("background: white;")
         self._canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
