@@ -186,7 +186,8 @@ class EventCanvas(QWidget):
                             self._canvas.draw_idle()
                             return
         # PMT pattern click: open zoomed standalone figure
-        if event.inaxes.collections and not event.inaxes.lines:
+        # (PMT axes have scatter collections but no _peak_regions)
+        if event.inaxes.collections and not hasattr(event.inaxes, '_peak_regions'):
             self._zoom_pmt_pattern(event.inaxes)
             return
 
