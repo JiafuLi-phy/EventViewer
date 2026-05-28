@@ -143,14 +143,49 @@ class PeakListWidget(QWidget):
     def _matches_query(self, p, orig_i, query: str) -> bool:
         if not query:
             return True
-        tokens = query.lower().replace("#", " ").split()
-        if len(tokens) >= 2 and tokens[0] in ("idx", "index", "peak"):
-            try:
-                return orig_i == int(tokens[1])
-            except ValueError:
-                return False
         display_type, area, width, rise, ev_time = self._peak_display_values(p, orig_i)
         ptype = int(p["type"])
+
+        # Parse numeric filters: area>1000, width<50, rise>=10, time<=100
+        numeric_ops = {"area": area, "width": width, "rise": rise, "time": ev_time}
+        text_tokens = []
+        for token in query.lower().replace("#", " ").split():
+            matched = False
+            for key, val in numeric_ops.items():
+                for op in (">=", "<=", ">", "<", "="):
+                    prefix = key + op
+                    if token.startswith(prefix):
+                        try:
+                            threshold = float(token[len(prefix):])
+                            if op == ">" and not (val > threshold):
+                                return False
+                            if op == ">=" and not (val >= threshold):
+                                return False
+                            if op == "<" and not (val < threshold):
+                                return False
+                            if op == "<=" and not (val <= threshold):
+                                return False
+                            if op == "=" and not (abs(val - threshold) < 1e-9):
+                                return False
+                            matched = True
+                        except ValueError:
+                            return False
+                        break
+                if matched:
+                    break
+            if not matched:
+                text_tokens.append(token)
+
+        if not text_tokens:
+            return True
+
+        # Text search in remaining tokens
+        if len(text_tokens) >= 2 and text_tokens[0] in ("idx", "index", "peak"):
+            try:
+                return orig_i == int(text_tokens[1])
+            except ValueError:
+                return False
+
         haystack = " ".join([
             display_type,
             style.PEAK_LABELS.get(ptype, ""),
@@ -163,7 +198,7 @@ class PeakListWidget(QWidget):
             f"{rise:.1f}",
             f"{ev_time:.1f}",
         ]).lower()
-        return all(token in haystack for token in tokens)
+        return all(token in haystack for token in text_tokens)
 
     def _render_table(self):
         peaks = self._all_peaks
