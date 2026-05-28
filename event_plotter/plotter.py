@@ -797,7 +797,7 @@ def plot_event_full(
             max_pmt = int(event["s1_max_pmt"])
             if max_pmt < len(pmt_positions) and pmt_positions[max_pmt]["array"] == arr_name:
                 ax_pmt.plot(pmt_positions[max_pmt]["x"], pmt_positions[max_pmt]["y"],
-                           'bD', markersize=14, markeredgewidth=3, zorder=10, label='S1')
+                           'gx', markersize=10, markeredgewidth=2.5, zorder=10, label='S1')
 
     if title is None:
         title = _make_event_title(event, run_id=run_id)
@@ -1443,13 +1443,13 @@ def plot_peak_zoom(
                 max_pmt = int(event["s1_max_pmt"])
                 if max_pmt < len(pmt_positions) and pmt_positions[max_pmt]["array"] == arr_name:
                     ax_pmt.plot(pmt_positions[max_pmt]["x"], pmt_positions[max_pmt]["y"],
-                               'bD', markersize=14, markeredgewidth=3, zorder=10)
+                               'gx', markersize=10, markeredgewidth=2.5, zorder=10)
         elif ptype == 2:
             # S2: mark reconstructed position
             if "s2_x" in event.dtype.names and "s2_y" in event.dtype.names:
                 s2x, s2y = float(event["s2_x"]), float(event["s2_y"])
                 if abs(s2x) > 0.01 or abs(s2y) > 0.01:
-                    ax_pmt.plot(s2x, s2y, 'rx', markersize=16, markeredgewidth=4, zorder=10)
+                    ax_pmt.plot(s2x, s2y, 'rx', markersize=10, markeredgewidth=2.5, zorder=10)
 
     if title is None:
         title = _make_event_title(event, run_id=run_id)
