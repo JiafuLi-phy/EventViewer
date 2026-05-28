@@ -940,7 +940,25 @@ def _draw_3layer_waveform(
     ax.axhline(0, color="k", alpha=0.15, linewidth=0.4)
     ax.set_ylabel("Model pulse [PE/ns]")
     style.tighten_ylim(ax)
-    ax.legend(loc="upper right", fontsize=style.plt.rcParams["font.size"] - 1)
+    leg = ax.legend(loc="upper right", fontsize=style.plt.rcParams["font.size"] - 1)
+    for txt in leg.get_texts():
+        txt.set_picker(True)
+    # Collect all artists from the 3 passes
+    all_artists = {"top": [], "bottom": [], "total": []}
+    for line in ax.lines:
+        c = line.get_color()
+        if c == "#2196F3": all_artists["top"].append(line)
+        elif c == "#4CAF50": all_artists["bottom"].append(line)
+        elif c == "#F44336": all_artists["total"].append(line)
+    for coll in ax.collections:
+        fc = coll.get_facecolor()
+        if len(fc) > 0:
+            r, g, b = fc[0][:3]
+            if r < 0.2 and b > 0.8: all_artists["top"].append(coll)
+            elif g > 0.8: all_artists["bottom"].append(coll)
+            elif r > 0.8: all_artists["total"].append(coll)
+    ax._legend_artists = {k: v for k, v in all_artists.items() if v}
+    ax._legend_state = {k: True for k in ax._legend_artists}
 
 
 # ── peak stacking ──────────────────────────────────────────────
