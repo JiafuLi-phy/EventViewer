@@ -791,13 +791,17 @@ def plot_event_full(
             s2x, s2y = float(event["s2_x"]), float(event["s2_y"])
             if abs(s2x) > 0.01 or abs(s2y) > 0.01:
                 ax_pmt.plot(s2x, s2y, 'r*', markersize=10, markeredgewidth=2.5,
-                           zorder=10, label='S2')
-        # Mark S1 max PMT with blue diamond (on top layer)
+                           zorder=10)
+            ax_pmt.annotate('S2', (s2x, s2y), xytext=(8, 8), textcoords='offset points',
+                           fontsize=11, color='red', fontweight='bold')
+        # Mark S1 max PMT
         if "s1_max_pmt" in event.dtype.names:
             max_pmt = int(event["s1_max_pmt"])
             if max_pmt < len(pmt_positions) and pmt_positions[max_pmt]["array"] == arr_name:
-                ax_pmt.plot(pmt_positions[max_pmt]["x"], pmt_positions[max_pmt]["y"],
-                           'g*', markersize=10, markeredgewidth=2.5, zorder=10, label='S1')
+                sx, sy = pmt_positions[max_pmt]["x"], pmt_positions[max_pmt]["y"]
+                ax_pmt.plot(sx, sy, 'g*', markersize=10, markeredgewidth=2.5, zorder=10)
+                ax_pmt.annotate('S1', (sx, sy), xytext=(8, 8), textcoords='offset points',
+                               fontsize=11, color='green', fontweight='bold')
 
     if title is None:
         title = _make_event_title(event, run_id=run_id)
