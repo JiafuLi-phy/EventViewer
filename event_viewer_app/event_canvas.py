@@ -192,7 +192,7 @@ class EventCanvas(QWidget):
         x = event.xdata
         if x is None:
             return
-        best, best_d = None, 0.0005
+        best, best_d = None, 500  # 500 μs tolerance
         for r in regions:
             cx = r.get('center_x', (r['x_start'] + r['x_end']) / 2)
             d = abs(x - cx)
