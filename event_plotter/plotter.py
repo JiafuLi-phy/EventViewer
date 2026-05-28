@@ -795,15 +795,17 @@ def plot_event_full(
         if s2x is not None and s2y is not None and (abs(s2x) > 0.01 or abs(s2y) > 0.01):
             ax_pmt.plot(s2x, s2y, 'r*', markersize=10, markeredgewidth=2.5, zorder=10)
             ax_pmt.annotate('S2', (s2x, s2y), xytext=(8, 8), textcoords='offset points',
-                           fontsize=11, color='red', fontweight='bold')
+                           fontsize=11, color='#CC0000', fontweight='bold',
+                           bbox=dict(facecolor='white', alpha=0.7, edgecolor='none', pad=1))
         # Mark S1 max PMT
         if "s1_max_pmt" in event.dtype.names:
             max_pmt = int(event["s1_max_pmt"])
             if max_pmt < len(pmt_positions) and pmt_positions[max_pmt]["array"] == arr_name:
                 sx, sy = pmt_positions[max_pmt]["x"], pmt_positions[max_pmt]["y"]
                 ax_pmt.plot(sx, sy, 'g*', markersize=10, markeredgewidth=2.5, zorder=10)
-                ax_pmt.annotate('S1', (sx, sy), xytext=(8, 8), textcoords='offset points',
-                               fontsize=11, color='green', fontweight='bold')
+                ax_pmt.annotate('S1', (sx, sy), xytext=(8, -12), textcoords='offset points',
+                               fontsize=11, color='#006400', fontweight='bold',
+                               bbox=dict(facecolor='white', alpha=0.7, edgecolor='none', pad=1))
 
     if title is None:
         title = _make_event_title(event, run_id=run_id)
@@ -1457,8 +1459,9 @@ def plot_peak_zoom(
                 ax_pmt.plot(pmt_positions[max_pmt]["x"], pmt_positions[max_pmt]["y"],
                            'g*', markersize=10, markeredgewidth=2.5, zorder=10)
                 ax_pmt.annotate('S1', (pmt_positions[max_pmt]["x"], pmt_positions[max_pmt]["y"]),
-                               xytext=(8, 8), textcoords='offset points', fontsize=10,
-                               color='green', fontweight='bold')
+                               xytext=(8, -12), textcoords='offset points', fontsize=10,
+                               color='#006400', fontweight='bold',
+                               bbox=dict(facecolor='white', alpha=0.7, edgecolor='none', pad=1))
         elif ptype == 2:
             s2x = s2y = None
             if "s2_x_cnn" in event.dtype.names and "s2_y_cnn" in event.dtype.names:
