@@ -9,8 +9,8 @@ from .qt_compat import (
     QMainWindow, QSplitter, QStatusBar, QMenuBar, QMenu,
     QFileDialog, QMessageBox, QLabel, QInputDialog,
     QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView,
-    QWidget, QVBoxLayout, QShortcut, QComboBox,
-    QGroupBox,
+    QWidget, QVBoxLayout, QHBoxLayout, QShortcut, QComboBox,
+    QGroupBox, QPushButton,
 )
 from .qt_compat import Qt, QObject, QThread, Signal, Slot
 from .qt_compat import QAction, QKeySequence
@@ -291,9 +291,14 @@ class MainWindow(QMainWindow):
         # Run Selector
         run_group = QGroupBox("Run Selector")
         run_layout = QVBoxLayout(run_group)
+        run_row = QHBoxLayout()
         self._run_combo = QComboBox()
         self._run_combo.currentIndexChanged.connect(self._on_run_selected)
-        run_layout.addWidget(self._run_combo)
+        run_row.addWidget(self._run_combo, 1)
+        browse_btn = QPushButton("Browse...")
+        browse_btn.clicked.connect(self._on_open_bundle)
+        run_row.addWidget(browse_btn)
+        run_layout.addLayout(run_row)
         left_layout.addWidget(run_group)
 
         self._browser = EventBrowser(self._dm)
