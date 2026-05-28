@@ -336,7 +336,7 @@ def plot_peak_markers(
     ax.set_ylabel("log₁₀(area) / max")
     ax.set_xlabel("Time [μs]")
     if legend:
-        ax.legend(loc="upper right", bbox_to_anchor=(1.02, 1), fontsize=style.plt.rcParams["legend.fontsize"])
+        ax.legend(loc="upper right", bbox_to_anchor=(1.04, 1.10), fontsize=style.plt.rcParams["legend.fontsize"])
     return ax
 
 
@@ -528,7 +528,7 @@ def plot_peaks(
     ax.axhline(0, color="k", alpha=0.15, linewidth=0.4)
     ax.set_xlabel("Time [μs]", fontsize=style.plt.rcParams["font.size"] + 1, fontweight="bold")
     if legend:
-        ax.legend(loc="upper right", bbox_to_anchor=(1.02, 1), fontsize=style.plt.rcParams["legend.fontsize"])
+        ax.legend(loc="upper right", bbox_to_anchor=(1.04, 1.10), fontsize=style.plt.rcParams["legend.fontsize"])
     return ax
 
 
@@ -830,7 +830,7 @@ def _draw_3layer_waveform(
         ax.set_xlabel("Time [μs]", fontweight="bold")
         ax.set_ylabel("Real peak waveform [PE/ns]")
         style.tighten_ylim(ax)
-        leg = ax.legend(loc="upper right", bbox_to_anchor=(1.02, 1), fontsize=style.plt.rcParams["legend.fontsize"])
+        leg = ax.legend(loc="upper right", bbox_to_anchor=(1.04, 1.10), fontsize=style.plt.rcParams["legend.fontsize"])
         for txt in leg.get_texts():
             txt.set_picker(True)
         ax._legend_artists = {k: v for k, v in legend_artists.items() if v}
@@ -874,7 +874,7 @@ def _draw_3layer_waveform(
         ax.set_xlabel("Time [μs]", fontweight="bold")
         ax.set_ylabel("Intensity [PE/ns]")
         style.tighten_ylim(ax)
-        leg = ax.legend(loc="upper right", bbox_to_anchor=(1.02, 1), fontsize=style.plt.rcParams["legend.fontsize"])
+        leg = ax.legend(loc="upper right", bbox_to_anchor=(1.04, 1.10), fontsize=style.plt.rcParams["legend.fontsize"])
         for txt in leg.get_texts():
             txt.set_picker(True)
         return
@@ -943,7 +943,7 @@ def _draw_3layer_waveform(
     ax.set_xlabel("Time [μs]", fontweight="bold")
     ax.set_ylabel("Model pulse [PE/ns]")
     style.tighten_ylim(ax)
-    leg = ax.legend(loc="upper right", bbox_to_anchor=(1.02, 1), fontsize=style.plt.rcParams["legend.fontsize"])
+    leg = ax.legend(loc="upper right", bbox_to_anchor=(1.04, 1.10), fontsize=style.plt.rcParams["legend.fontsize"])
     for txt in leg.get_texts():
         txt.set_picker(True)
     # Collect all artists from the 3 passes
@@ -1098,7 +1098,7 @@ def plot_peak_stack(
     ax.set_ylabel("Amplitude [PE/ns]" if not normalize else "Norm. amplitude")
     ptype_label = style.PEAK_LABELS.get(peak_type, f"type={peak_type}")
     ax.set_title(title or f"{n_wf} {ptype_label} peaks stacked")
-    ax.legend(loc="upper right", bbox_to_anchor=(1.02, 1), fontsize=style.plt.rcParams["legend.fontsize"])
+    ax.legend(loc="upper right", bbox_to_anchor=(1.04, 1.10), fontsize=style.plt.rcParams["legend.fontsize"])
 
     style.tighten_ylim(ax)
     return fig
