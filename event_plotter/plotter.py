@@ -772,7 +772,7 @@ def plot_event_full(
     for ax_pmt, arr_name in [(ax_pmt_top, "top"), (ax_pmt_bot, "bottom")]:
         plot_pmt_hit_pattern(ev_area, pmt_positions, to_pe,
                              array_name=arr_name, ax=ax_pmt, cmap="plasma",
-                             vmin=0, marker_size=120,
+                             vmin=0, marker_size=60,
                              show_colorbar=True, label="Area [PE]")
         ax_pmt.set_title(f"Event {arr_name.capitalize()} PMT", fontweight="bold")
 
@@ -1410,7 +1410,7 @@ def plot_peak_zoom(
         else:
             plot_pmt_hit_pattern(area_pmt, pmt_positions, to_pe,
                                  array_name=arr_name, ax=ax_pmt, cmap="plasma",
-                                 vmin=0, marker_size=120,
+                                 vmin=0, marker_size=80,
                                  show_colorbar=True, label="Area [PE]")
         ax_pmt.set_title(f"{arr_name.capitalize()} PMT{pmt_suffix}", fontweight="bold")
 
