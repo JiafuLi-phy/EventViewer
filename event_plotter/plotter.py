@@ -732,8 +732,8 @@ def plot_event_full(
     # ── Row 2: Event waveform (log scale) ──
     # ── Row 3: PMT hit patterns ──
     gs = gridspec.GridSpec(3, 2, figure=fig,
-                           height_ratios=[1.2, 1.2, 1.0],
-                           hspace=0.5, wspace=0.4)
+                           height_ratios=[1.0, 1.0, 1.4],
+                           hspace=0.4, wspace=0.3)
 
     ax_wf = fig.add_subplot(gs[0, :])  # full width waveform (linear)
     ax_wf_log = fig.add_subplot(gs[1, :])  # full width waveform (log)
