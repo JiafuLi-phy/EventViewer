@@ -50,7 +50,7 @@ class StraxLoadWorker(QObject):
 class PeakListWidget(QWidget):
     """Table widget listing all peaks for the current event."""
 
-    COLUMNS = ["Type", "Area [PE]", "Width [μs]", "Rise [μs]", "X [cm]", "Y [cm]"]
+    COLUMNS = ["Type", "Area [PE]", "Width [μs]", "Rise [μs]"]
 
     class NumericItem(QTableWidgetItem):
         @staticmethod
@@ -264,16 +264,6 @@ class PeakListWidget(QWidget):
 
             item = self.NumericItem(f"{rise:.1f}")
             self._table.setItem(row, 3, item)
-
-            # X, Y position (only for S2 peaks)
-            if ptype == 2 and self._s2_x is not None and self._s2_y is not None:
-                item = self.NumericItem(f"{self._s2_x:.1f}")
-                self._table.setItem(row, 4, item)
-                item = self.NumericItem(f"{self._s2_y:.1f}")
-                self._table.setItem(row, 5, item)
-            else:
-                self._table.setItem(row, 4, QTableWidgetItem(""))
-                self._table.setItem(row, 5, QTableWidgetItem(""))
 
             # Color-code S1/S2 rows
             if ptype == 1:

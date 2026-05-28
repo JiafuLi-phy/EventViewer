@@ -1436,20 +1436,18 @@ def plot_peak_zoom(
                                  vmin=0, marker_size=80,
                                  show_colorbar=True, label="Area [PE]")
         ax_pmt.set_title(f"{arr_name.capitalize()} PMT{pmt_suffix}", fontweight="bold")
-        # Mark position based on peak type
-        if ptype == 1:
-            # S1: mark max PMT
-            if "s1_max_pmt" in event.dtype.names:
-                max_pmt = int(event["s1_max_pmt"])
-                if max_pmt < len(pmt_positions) and pmt_positions[max_pmt]["array"] == arr_name:
-                    ax_pmt.plot(pmt_positions[max_pmt]["x"], pmt_positions[max_pmt]["y"],
-                               'g*', markersize=10, markeredgewidth=2.5, zorder=10)
-        elif ptype == 2:
-            # S2: mark reconstructed position
-            if "s2_x" in event.dtype.names and "s2_y" in event.dtype.names:
-                s2x, s2y = float(event["s2_x"]), float(event["s2_y"])
-                if abs(s2x) > 0.01 or abs(s2y) > 0.01:
-                    ax_pmt.plot(s2x, s2y, 'r*', markersize=10, markeredgewidth=2.5, zorder=10)
+        # Mark position only for main S1/S2
+        s1_idx = int(event["s1_index"]) if "s1_index" in event.dtype.names else -1
+        s2_idx = int(event["s2_index"]) if "s2_index" in event.dtype.names else -1
+        if highlight_idx == s1_idx and "s1_max_pmt" in event.dtype.names:
+            max_pmt = int(event["s1_max_pmt"])
+            if max_pmt < len(pmt_positions) and pmt_positions[max_pmt]["array"] == arr_name:
+                ax_pmt.plot(pmt_positions[max_pmt]["x"], pmt_positions[max_pmt]["y"],
+                           'g*', markersize=10, markeredgewidth=2.5, zorder=10)
+        elif highlight_idx == s2_idx and "s2_x" in event.dtype.names and "s2_y" in event.dtype.names:
+            s2x, s2y = float(event["s2_x"]), float(event["s2_y"])
+            if abs(s2x) > 0.01 or abs(s2y) > 0.01:
+                ax_pmt.plot(s2x, s2y, 'r*', markersize=10, markeredgewidth=2.5, zorder=10)
 
     if title is None:
         title = _make_event_title(event, run_id=run_id)
