@@ -180,11 +180,9 @@ def save_figure(
     print(f"Saved to {basepath}.{{{', '.join(formats)}}}")
 
 
-def tighten_ylim(ax: plt.Axes, pad_frac: float = 0.05) -> None:
+def tighten_ylim(ax: plt.Axes, pad_frac: float = 0.10) -> None:
     """Set y-limits to data range plus a small fractional pad."""
     lines = ax.get_lines()
-    if not lines:
-        return
     ymin, ymax = np.inf, -np.inf
     for line in lines:
         yd = np.asarray(line.get_ydata(), dtype=float)
@@ -192,6 +190,18 @@ def tighten_ylim(ax: plt.Axes, pad_frac: float = 0.05) -> None:
         if len(yd):
             ymin = min(ymin, yd.min())
             ymax = max(ymax, yd.max())
+    # Also check collections (fill_between)
+    for coll in ax.collections:
+        try:
+            offs = coll.get_offsets()
+            if len(offs) > 0 and offs.shape[1] >= 2:
+                yvals = offs[:, 1]
+                yvals = yvals[np.isfinite(yvals)]
+                if len(yvals):
+                    ymin = min(ymin, yvals.min())
+                    ymax = max(ymax, yvals.max())
+        except Exception:
+            pass
     if not np.isfinite(ymin) or not np.isfinite(ymax):
         return
     pad = (ymax - ymin) * pad_frac + 1e-12
