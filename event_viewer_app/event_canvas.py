@@ -155,7 +155,7 @@ class EventCanvas(QWidget):
     def _on_click(self, event):
         if event.dblclick or event.inaxes is None:
             return
-        # legend toggle
+        # legend toggle: click to show only that layer, click again to show all
         state = getattr(event.inaxes, '_legend_state', None)
         artists = getattr(event.inaxes, '_legend_artists', None)
         if state and artists:
@@ -163,17 +163,28 @@ class EventCanvas(QWidget):
             if leg:
                 for txt in leg.get_texts():
                     if txt.contains(event)[0]:
+                        clicked_key = None
                         for key in state:
                             if key in txt.get_text().lower():
-                                state[key] = not state[key]
-                                a = artists.get(key)
+                                clicked_key = key
+                                break
+                        if clicked_key:
+                            # If only this layer is visible, show all
+                            visible_count = sum(1 for v in state.values() if v)
+                            if visible_count == 1 and state[clicked_key]:
+                                for k in state: state[k] = True
+                            else:
+                                # Show only clicked layer
+                                for k in state: state[k] = (k == clicked_key)
+                            for k, a in artists.items():
                                 if a is not None:
+                                    v = state[k]
                                     if isinstance(a, list):
-                                        for x in a: x.set_visible(state[key])
+                                        for x in a: x.set_visible(v)
                                     else:
-                                        a.set_visible(state[key])
-                                self._canvas.draw_idle()
-                                return
+                                        a.set_visible(v)
+                            self._canvas.draw_idle()
+                            return
         # peak hit test
         regions = getattr(event.inaxes, '_peak_regions', None)
         if not regions:

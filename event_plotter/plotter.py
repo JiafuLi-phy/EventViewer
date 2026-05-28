@@ -62,7 +62,7 @@ def time_and_samples(
     n = int(peak["length"])
     if t0 is None:
         t0 = int(peak["time"])
-    x = (int(peak["time"]) - t0 + np.arange(n + 1) * peak["dt"]) / 1e9
+    x = (int(peak["time"]) - t0 + np.arange(n + 1) * peak["dt"]) / 1e6
     y = peak["data"][:n] / peak["dt"]
     return x, np.concatenate([[y[0]], y])
 
@@ -84,7 +84,7 @@ def time_and_component_samples(
         data = total - peak["data_top"][:n].astype(float)
     else:
         data = total
-    x = (int(peak["time"]) - t0 + np.arange(n + 1) * dt) / 1e9
+    x = (int(peak["time"]) - t0 + np.arange(n + 1) * dt) / 1e6
     y = data / dt
     return x, np.concatenate([[y[0]], y])
 
@@ -179,7 +179,7 @@ def plot_peak_waveform(
     if center_time:
         if t0 is None:
             t0 = int(peak["time"])
-        ct = (int(peak["center_time"]) - t0) / 1e9
+        ct = (int(peak["center_time"]) - t0) / 1e6
         ax.axvline(ct, color="k", alpha=0.35, linewidth=0.6, linestyle="--")
 
     return ax
@@ -258,7 +258,7 @@ def plot_peak_waveform_model(
 
     t_rel, y = _model_pulse_waveform(peak)
     t_abs = int(peak["time"]) - t0 + t_rel  # ns
-    x = t_abs / 1e9  # seconds
+    x = t_abs / 1e6  # seconds
 
     ax.plot(x, y, color=color, linewidth=linewidth, label=label)
     ax.fill_between(x, 0, y, color=color, alpha=alpha_fill, linewidth=0)
@@ -321,20 +321,20 @@ def plot_peak_markers(
             lbl = None
         plotted_types.add(ptype)
 
-        x_start = (int(p["time"]) - t0) / 1e9
+        x_start = (int(p["time"]) - t0) / 1e6
         length = int(p["length"]) if "length" in p.dtype.names else 1
         dt = int(p["dt"]) if "dt" in p.dtype.names else 10
-        x_end = x_start + length * dt / 1e9
+        x_end = x_start + length * dt / 1e6
         # if endtime available, use it (more accurate)
         if "endtime" in p.dtype.names:
-            x_end = (int(p["endtime"]) - t0) / 1e9
+            x_end = (int(p["endtime"]) - t0) / 1e6
 
         ax.axvspan(x_start, x_end, ymin=0, ymax=float(h[i]),
                    color=c, alpha=alpha, linewidth=0, label=lbl)
 
     ax.set_ylim(0, 1.05)
     ax.set_ylabel("log₁₀(area) / max")
-    ax.set_xlabel("Time [s]")
+    ax.set_xlabel("Time [μs]")
     if legend:
         ax.legend(loc="upper right", fontsize=style.plt.rcParams["font.size"] - 1)
     return ax
@@ -453,10 +453,10 @@ def plot_peaks(
                 linewidth=_lw, label=lbl,
             )
             # record hit region
-            x_start = (int(p["time"]) - t0) / 1e9
+            x_start = (int(p["time"]) - t0) / 1e6
             n = int(p["length"])
             dt = int(p["dt"]) if "dt" in p.dtype.names else 10
-            x_end = x_start + n * dt / 1e9
+            x_end = x_start + n * dt / 1e6
             ax._peak_regions.append({
                 "x_start": x_start, "x_end": x_end,
                 "center_x": (x_start + x_end) / 2,
@@ -483,8 +483,8 @@ def plot_peaks(
                 alpha_fill=_af, linewidth=_lw,
                 label=lbl, to_pe=to_pe,
             )
-            x_start = (int(p["time"]) - t0) / 1e9
-            x_end = (int(p["endtime"]) - t0) / 1e9 if "endtime" in p.dtype.names else x_start + 1e-8
+            x_start = (int(p["time"]) - t0) / 1e6
+            x_end = (int(p["endtime"]) - t0) / 1e6 if "endtime" in p.dtype.names else x_start + 1e-8
             ax._peak_regions.append({
                 "x_start": x_start, "x_end": x_end,
                 "center_x": (x_start + x_end) / 2,
@@ -511,9 +511,9 @@ def plot_peaks(
                 p, t0=t0, ax=ax, color=c, alpha_fill=_af,
                 linewidth=_lw, label=lbl,
             )
-            x_start = (int(p["time"]) - t0) / 1e9
+            x_start = (int(p["time"]) - t0) / 1e6
             end_ns = int(p["endtime"]) if "endtime" in p.dtype.names else int(p["time"]) + int(p["length"]) * int(p["dt"])
-            x_end = (end_ns - t0) / 1e9
+            x_end = (end_ns - t0) / 1e6
             ax._peak_regions.append({
                 "x_start": x_start, "x_end": x_end,
                 "center_x": (x_start + x_end) / 2,
@@ -526,7 +526,7 @@ def plot_peaks(
         style.tighten_ylim(ax)
 
     ax.axhline(0, color="k", alpha=0.15, linewidth=0.4)
-    ax.set_xlabel("Time [s]", fontsize=style.plt.rcParams["font.size"] + 1, fontweight="bold")
+    ax.set_xlabel("Time [μs]", fontsize=style.plt.rcParams["font.size"] + 1, fontweight="bold")
     if legend:
         ax.legend(loc="upper right", fontsize=style.plt.rcParams["font.size"] - 1)
     return ax
@@ -817,9 +817,9 @@ def _draw_3layer_waveform(
                 alpha_fill=0.30, linewidth=1.05 * lw_scale, label=total_lbl,
             ))
 
-            x_start = (int(p["time"]) - t0) / 1e9
+            x_start = (int(p["time"]) - t0) / 1e6
             end_ns = int(p["endtime"]) if "endtime" in p.dtype.names else int(p["time"]) + int(p["length"]) * int(p["dt"])
-            x_end = (end_ns - t0) / 1e9
+            x_end = (end_ns - t0) / 1e6
             ax._peak_regions.append({
                 "x_start": x_start, "x_end": x_end,
                 "center_x": (x_start + x_end) / 2,
@@ -862,9 +862,9 @@ def _draw_3layer_waveform(
         ax._legend_state = {"top": True, "bottom": True, "total": True}
         for i, p in enumerate(peaks):
             orig_i = original_idx[i]
-            x_start = (int(p["time"]) - t0) / 1e9
+            x_start = (int(p["time"]) - t0) / 1e6
             end_ns = int(p["endtime"]) if "endtime" in p.dtype.names else int(p["time"]) + int(p["length"]) * int(p["dt"])
-            x_end = (end_ns - t0) / 1e9
+            x_end = (end_ns - t0) / 1e6
             ax._peak_regions.append({
                 "x_start": x_start, "x_end": x_end,
                 "center_x": (x_start + x_end) / 2,
@@ -928,9 +928,9 @@ def _draw_3layer_waveform(
         plot_peak_waveform_model(p, t0=t0, ax=ax,
             color="#F44336", alpha_fill=0.55, linewidth=1.5 * lw_scale, label=lbl)
 
-        x_start = (int(p["time"]) - t0) / 1e9
+        x_start = (int(p["time"]) - t0) / 1e6
         end_ns = int(p["endtime"]) if "endtime" in p.dtype.names else int(p["time"]) + int(p["length"]) * int(p["dt"])
-        x_end = (end_ns - t0) / 1e9
+        x_end = (end_ns - t0) / 1e6
         ax._peak_regions.append({
             "x_start": x_start, "x_end": x_end,
             "center_x": (x_start + x_end) / 2,
@@ -1089,7 +1089,7 @@ def plot_peak_stack(
 def _clean_zoom_ax(ax: plt.Axes) -> None:
     """Minimalist styling for zoomed-in peak detail axes."""
     ax.tick_params(labelsize=style.plt.rcParams["font.size"] - 1)
-    ax.set_xlabel("Time [s]", fontsize=style.plt.rcParams["font.size"])
+    ax.set_xlabel("Time [μs]", fontsize=style.plt.rcParams["font.size"])
 
 
 def _annotate_peak_info(ax: plt.Axes, event: np.ndarray, prefix: str) -> None:
@@ -1183,8 +1183,8 @@ def _mark_peak_span(
     t1, t2 = int(event[t_field]), int(event[et_field])
     if t1 <= 0:
         return
-    x1 = (t1 - t0) / 1e9
-    x2 = (t2 - t0) / 1e9
+    x1 = (t1 - t0) / 1e6
+    x2 = (t2 - t0) / 1e6
     ylim = ax.get_ylim()
     yh = ylim[1] * 0.92
     ax.axvspan(x1, x2, color=color, alpha=0.08, linewidth=0)
@@ -1313,7 +1313,7 @@ def plot_peak_zoom(
         ax_wf.set_ylabel("Model pulse [PE/ns]")
 
     ax_wf.set_title(f"{label} Peak  |  area={area_total:.0f} PE", fontweight="bold")
-    ax_wf.set_xlabel("Time [s]")
+    ax_wf.set_xlabel("Time [μs]")
     ax_wf.axhline(0, color="k", alpha=0.15, linewidth=0.4)
     style.tighten_ylim(ax_wf)
 
@@ -1333,10 +1333,10 @@ def plot_peak_zoom(
     ax_wf._legend_state = {"top": True, "bottom": True, "total": True}
 
     # Clickable region for returning to overview
-    x_range = (t_end + margin - (t_peak - margin)) / 1e9
+    x_range = (t_end + margin - (t_peak - margin)) / 1e6
     ax_wf._peak_regions = [{
-        "x_start": (t_peak - margin) / 1e9,
-        "x_end": (t_end + margin) / 1e9,
+        "x_start": (t_peak - margin) / 1e6,
+        "x_end": (t_end + margin) / 1e6,
         "center_x": (t_peak + t_end) / 2e9,
         "index": highlight_idx,
         "type": ptype,
@@ -1399,7 +1399,7 @@ def _make_event_title(event: np.ndarray, run_id: Optional[str] = None) -> str:
     # human-readable time
     try:
         import datetime
-        dt = datetime.datetime.utcfromtimestamp(t_ns / 1e9)
+        dt = datetime.datetime.utcfromtimestamp(t_ns / 1e6)
         ts = dt.strftime("%Y-%m-%d %H:%M:%S UTC")
     except Exception:
         ts = f"{t_ns} ns"
