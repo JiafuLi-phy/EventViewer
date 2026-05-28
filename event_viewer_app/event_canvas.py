@@ -251,6 +251,11 @@ class EventCanvas(QWidget):
         new_ax.set_xlabel(ax.get_xlabel())
         new_ax.set_ylabel(ax.get_ylabel())
         new_ax.set_title(title)
+        # Add colorbar
+        for coll in new_ax.collections:
+            if hasattr(coll, 'get_array'):
+                fig.colorbar(coll, ax=new_ax, fraction=0.046, pad=0.04, label='Area [PE]')
+                break
         fig.tight_layout()
         # Hover handler for PMT ID
         def on_hover(event):

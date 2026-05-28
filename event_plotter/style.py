@@ -95,8 +95,8 @@ def apply_style(
     plt.rcParams["pdf.fonttype"] = 42           # TrueType, not Type 3
 
     # ── spines ──
-    plt.rcParams["axes.spines.right"] = False
-    plt.rcParams["axes.spines.top"] = False
+    plt.rcParams["axes.spines.right"] = True
+    plt.rcParams["axes.spines.top"] = True
     plt.rcParams["axes.linewidth"] = axes_linewidth
 
     # ── ticks ──
