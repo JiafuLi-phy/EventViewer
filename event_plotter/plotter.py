@@ -786,12 +786,14 @@ def plot_event_full(
                              vmin=0, marker_size=40,
                              show_colorbar=True, label="Area [PE]")
         ax_pmt.set_title(f"Event {arr_name.capitalize()} PMT", fontweight="bold")
-        # Mark S2 position with red X (on top layer)
-        if "s2_x" in event.dtype.names and "s2_y" in event.dtype.names:
+        # Mark S2 position with red star
+        s2x = s2y = None
+        if "s2_x_cnn" in event.dtype.names and "s2_y_cnn" in event.dtype.names:
+            s2x, s2y = float(event["s2_x_cnn"]), float(event["s2_y_cnn"])
+        elif "s2_x" in event.dtype.names and "s2_y" in event.dtype.names:
             s2x, s2y = float(event["s2_x"]), float(event["s2_y"])
-            if abs(s2x) > 0.01 or abs(s2y) > 0.01:
-                ax_pmt.plot(s2x, s2y, 'r*', markersize=10, markeredgewidth=2.5,
-                           zorder=10)
+        if s2x is not None and s2y is not None and (abs(s2x) > 0.01 or abs(s2y) > 0.01):
+            ax_pmt.plot(s2x, s2y, 'r*', markersize=10, markeredgewidth=2.5, zorder=10)
             ax_pmt.annotate('S2', (s2x, s2y), xytext=(8, 8), textcoords='offset points',
                            fontsize=11, color='red', fontweight='bold')
         # Mark S1 max PMT
@@ -1448,8 +1450,11 @@ def plot_peak_zoom(
             if max_pmt < len(pmt_positions) and pmt_positions[max_pmt]["array"] == arr_name:
                 ax_pmt.plot(pmt_positions[max_pmt]["x"], pmt_positions[max_pmt]["y"],
                            'g*', markersize=10, markeredgewidth=2.5, zorder=10)
-        elif highlight_idx == s2_idx and "s2_x" in event.dtype.names and "s2_y" in event.dtype.names:
-            s2x, s2y = float(event["s2_x"]), float(event["s2_y"])
+        elif highlight_idx == s2_idx:
+            if "s2_x_cnn" in event.dtype.names and "s2_y_cnn" in event.dtype.names:
+                s2x, s2y = float(event["s2_x_cnn"]), float(event["s2_y_cnn"])
+            elif "s2_x" in event.dtype.names and "s2_y" in event.dtype.names:
+                s2x, s2y = float(event["s2_x"]), float(event["s2_y"])
             if abs(s2x) > 0.01 or abs(s2y) > 0.01:
                 ax_pmt.plot(s2x, s2y, 'r*', markersize=10, markeredgewidth=2.5, zorder=10)
 
