@@ -786,6 +786,17 @@ def plot_event_full(
                              vmin=0, marker_size=40,
                              show_colorbar=True, label="Area [PE]")
         ax_pmt.set_title(f"Event {arr_name.capitalize()} PMT", fontweight="bold")
+        # Mark S2 position with red X
+        if "s2_x" in event.dtype.names and "s2_y" in event.dtype.names:
+            s2x, s2y = float(event["s2_x"]), float(event["s2_y"])
+            if abs(s2x) > 0.01 or abs(s2y) > 0.01:
+                ax_pmt.plot(s2x, s2y, 'rx', markersize=14, markeredgewidth=3, label='S2')
+        # Mark S1 max PMT with blue diamond
+        if "s1_max_pmt" in event.dtype.names:
+            max_pmt = int(event["s1_max_pmt"])
+            if max_pmt < len(pmt_positions) and pmt_positions[max_pmt]["array"] == arr_name:
+                ax_pmt.plot(pmt_positions[max_pmt]["x"], pmt_positions[max_pmt]["y"],
+                           'bD', markersize=12, markeredgewidth=2, label='S1')
 
     if title is None:
         title = _make_event_title(event, run_id=run_id)
