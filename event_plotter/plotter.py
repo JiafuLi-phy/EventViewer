@@ -886,7 +886,14 @@ def _draw_3layer_waveform(
         lbl = "Total" if "total" not in plotted_types else None
         plotted_types.update({"top", "bottom", "total"})
 
-        frac_top = float(p["area_fraction_top"]) if "area_fraction_top" in p.dtype.names else 0.5
+        if "area_fraction_top" in p.dtype.names:
+            frac_top = float(p["area_fraction_top"])
+        elif "data_top" in p.dtype.names and "data" in p.dtype.names:
+            dtop = p["data_top"][:int(p["length"])].sum()
+            dtot = p["data"][:int(p["length"])].sum()
+            frac_top = dtop / dtot if dtot > 0 else 0.5
+        else:
+            frac_top = 0.5
         area_tot = float(p["area"])
 
         p_top = np.array(p, copy=True)
