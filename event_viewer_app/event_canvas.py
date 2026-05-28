@@ -240,6 +240,14 @@ class EventCanvas(QWidget):
                 facecolors = coll.get_facecolors()
                 sc = new_ax.scatter(offsets[:, 0], offsets[:, 1],
                               s=100, c=facecolors, edgecolors='white', linewidths=0.3)
+        # Copy line markers (S1/S2 X marks)
+        for line in ax.lines:
+            xd = line.get_xdata()
+            yd = line.get_ydata()
+            if len(xd) == 1 and len(yd) == 1:  # single point marker
+                new_ax.plot(xd, yd, color=line.get_color(), marker=line.get_marker(),
+                           markersize=line.get_markersize(), markeredgewidth=line.get_markeredgewidth(),
+                           zorder=10)
         # Copy circle artists
         for artist in ax.artists:
             if hasattr(artist, 'radius'):
