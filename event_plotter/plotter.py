@@ -814,7 +814,7 @@ def _draw_3layer_waveform(
                 ))
             legend_artists["total"].extend(plot_peak_component_waveform(
                 p, "total", t0, ax, total_color,
-                alpha_fill=0.30, linewidth=1.05 * lw_scale, label=total_lbl,
+                alpha_fill=0.22, linewidth=1.05 * lw_scale, label=total_lbl,
             ))
 
             x_start = (int(p["time"]) - t0) / 1000
@@ -926,7 +926,7 @@ def _draw_3layer_waveform(
         plotted_types.add("total")
         lw_scale = 3 if highlight_idx is not None and orig_i == highlight_idx else 1
         plot_peak_waveform_model(p, t0=t0, ax=ax,
-            color="#F44336", alpha_fill=0.55, linewidth=1.5 * lw_scale, label=lbl)
+            color="#F44336", alpha_fill=0.30, linewidth=1.5 * lw_scale, label=lbl)
 
         x_start = (int(p["time"]) - t0) / 1000
         end_ns = int(p["endtime"]) if "endtime" in p.dtype.names else int(p["time"]) + int(p["length"]) * int(p["dt"])
