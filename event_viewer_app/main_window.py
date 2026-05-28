@@ -50,7 +50,7 @@ class StraxLoadWorker(QObject):
 class PeakListWidget(QWidget):
     """Table widget listing all peaks for the current event."""
 
-    COLUMNS = ["Type", "Area [PE]", "Width [ns]", "Rise [ns]", "Time [ns]"]
+    COLUMNS = ["Type", "Area [PE]", "Width [μs]", "Rise [μs]", "Time [μs]"]
 
     class NumericItem(QTableWidgetItem):
         @staticmethod
@@ -123,27 +123,27 @@ class PeakListWidget(QWidget):
             item = self.NumericItem(f"{float(p['area']):.0f}")
             self._table.setItem(row, 1, item)
 
-            # Width (range_90p_area or duration)
+            # Width (range_90p_area or duration), convert ns->μs
             if "range_90p_area" in p.dtype.names:
-                width = float(p["range_90p_area"])
+                width = float(p["range_90p_area"]) / 1000
             else:
                 if "endtime" in p.dtype.names:
-                    width = int(p["endtime"]) - int(p["time"])
+                    width = (int(p["endtime"]) - int(p["time"])) / 1000
                 elif "length" in p.dtype.names and "dt" in p.dtype.names:
-                    width = int(p["length"]) * int(p["dt"])
+                    width = int(p["length"]) * int(p["dt"]) / 1000
                 else:
                     width = 0
-            item = self.NumericItem(f"{width:.0f}")
+            item = self.NumericItem(f"{width:.1f}")
             self._table.setItem(row, 2, item)
 
-            # Rise time
-            rise = float(p["rise_time"]) if "rise_time" in p.dtype.names else 0
-            item = self.NumericItem(f"{rise:.0f}")
+            # Rise time (ns->μs)
+            rise = float(p["rise_time"]) / 1000 if "rise_time" in p.dtype.names else 0
+            item = self.NumericItem(f"{rise:.1f}")
             self._table.setItem(row, 3, item)
 
-            # Time (relative to event start)
-            ev_time = int(p["time"])
-            item = self.NumericItem(f"{ev_time}")
+            # Time relative to event start (ns->μs)
+            ev_time = int(p["time"]) / 1000
+            item = self.NumericItem(f"{ev_time:.1f}")
             self._table.setItem(row, 4, item)
 
             # Color-code S1/S2 rows
