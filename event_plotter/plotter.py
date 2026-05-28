@@ -464,7 +464,7 @@ def plot_peaks(
                 "type": ptype, "area": float(p["area"]),
                 "time": int(p["time"]), "endtime": int(p["time"]) + n * dt,
             })
-        ax.set_ylabel("Intensity [PE/ns]")
+        ax.set_ylabel("Intensity [PE/μs]")
         style.tighten_ylim(ax)
     elif raw_records is not None and len(raw_records):
         from . import io as _io
@@ -493,7 +493,7 @@ def plot_peaks(
                 "time": int(p["time"]),
                 "endtime": int(p["endtime"]) if "endtime" in p.dtype.names else int(p["time"]) + int(p["length"]) * int(p["dt"]),
             })
-        ax.set_ylabel("Amplitude [ADC/ns]" if to_pe is None else "Intensity [PE/ns]")
+        ax.set_ylabel("Amplitude [ADC/ns]" if to_pe is None else "Intensity [PE/μs]")
         style.tighten_ylim(ax)
     else:
         # Use model pulse shapes (fast rise / slow decay) from metadata
@@ -522,7 +522,7 @@ def plot_peaks(
                 "time": int(p["time"]),
                 "endtime": end_ns,
             })
-        ax.set_ylabel("Model pulse [PE/ns]")
+        ax.set_ylabel("Model pulse [PE/μs]")
         style.tighten_ylim(ax)
 
     ax.axhline(0, color="k", alpha=0.15, linewidth=0.4)
@@ -838,7 +838,7 @@ def _draw_3layer_waveform(
 
         ax.axhline(0, color="k", alpha=0.15, linewidth=0.4)
         ax.set_xlabel("Time [μs]", fontweight="bold")
-        ax.set_ylabel("Real peak waveform [PE/ns]")
+        ax.set_ylabel("Real peak waveform [PE/μs]")
         style.tighten_ylim(ax)
         leg = ax.legend(loc="upper right", bbox_to_anchor=(1.04, 1.10), fontsize=style.plt.rcParams["legend.fontsize"])
         for txt in leg.get_texts():
@@ -882,7 +882,7 @@ def _draw_3layer_waveform(
                 "index": int(orig_i), "type": int(p["type"]), "area": float(p["area"]),
             })
         ax.set_xlabel("Time [μs]", fontweight="bold")
-        ax.set_ylabel("Intensity [PE/ns]")
+        ax.set_ylabel("Intensity [PE/μs]")
         style.tighten_ylim(ax)
         leg = ax.legend(loc="upper right", bbox_to_anchor=(1.04, 1.10), fontsize=style.plt.rcParams["legend.fontsize"])
         for txt in leg.get_texts():
@@ -951,7 +951,7 @@ def _draw_3layer_waveform(
 
     ax.axhline(0, color="k", alpha=0.15, linewidth=0.4)
     ax.set_xlabel("Time [μs]", fontweight="bold")
-    ax.set_ylabel("Model pulse [PE/ns]")
+    ax.set_ylabel("Model pulse [PE/μs]")
     style.tighten_ylim(ax)
     leg = ax.legend(loc="upper right", bbox_to_anchor=(1.04, 1.10), fontsize=style.plt.rcParams["legend.fontsize"])
     for txt in leg.get_texts():
@@ -1105,7 +1105,7 @@ def plot_peak_stack(
 
     ax.axhline(0, color="k", alpha=0.15, linewidth=0.4)
     ax.set_xlabel(f"Time rel. to {align.replace('_', ' ')} [μs]")
-    ax.set_ylabel("Amplitude [PE/ns]" if not normalize else "Norm. amplitude")
+    ax.set_ylabel("Amplitude [PE/μs]" if not normalize else "Norm. amplitude")
     ptype_label = style.PEAK_LABELS.get(peak_type, f"type={peak_type}")
     ax.set_title(title or f"{n_wf} {ptype_label} peaks stacked")
     ax.legend(loc="upper right", bbox_to_anchor=(1.04, 1.10), fontsize=style.plt.rcParams["legend.fontsize"])
@@ -1314,7 +1314,7 @@ def plot_peak_zoom(
             artists_top = artists_sum
         if not artists_bot:
             artists_bot = artists_sum
-        ax_wf.set_ylabel("Real peak waveform [PE/ns]")
+        ax_wf.set_ylabel("Real peak waveform [PE/μs]")
     elif raw_records is not None and len(raw_records) and pmt_positions is not None:
         from . import io as _io
         rec_mask = (raw_records["time"] >= t0) & (raw_records["time"] <= t_end + margin)
@@ -1333,7 +1333,7 @@ def plot_peak_zoom(
         artists_top = artists[f"top pmt ({area_top:.0f} pe)"]
         artists_bot = artists[f"bottom pmt ({area_bot:.0f} pe)"]
         artists_sum = artists[f"total ({area_total:.0f} pe)"]
-        ax_wf.set_ylabel("Intensity [PE/ns]")
+        ax_wf.set_ylabel("Intensity [PE/μs]")
     else:
         artists_top = plot_peak_waveform_model(peak_top, t0=t0, ax=ax_wf,
             color=top_color, alpha_fill=0.3, linewidth=2.4, label=f"Top PMT ({area_top:.0f} PE)")
@@ -1341,7 +1341,7 @@ def plot_peak_zoom(
             color=bot_color, alpha_fill=0.3, linewidth=2.4, label=f"Bottom PMT ({area_bot:.0f} PE)")
         artists_sum = plot_peak_waveform_model(peak, t0=t0, ax=ax_wf,
             color=sum_color, alpha_fill=0.4, linewidth=4.5, label=f"Total ({area_total:.0f} PE)")
-        ax_wf.set_ylabel("Model pulse [PE/ns]")
+        ax_wf.set_ylabel("Model pulse [PE/μs]")
 
     ax_wf.set_title(f"{label} Peak  |  area={area_total:.0f} PE", fontweight="bold")
     ax_wf.set_xlabel("Time [μs]")
