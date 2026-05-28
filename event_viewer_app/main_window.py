@@ -429,11 +429,8 @@ class MainWindow(QMainWindow):
             return
         self._browser._on_data_loaded(n, f"Bundle: {os.path.basename(path)}")
         self._status_label.setText(f"Loaded {n} events from {os.path.basename(path)}")
-        # Also add to run combo if not already there
-        label = f"Run {self._dm.run_id} ({n} events)  [{os.path.basename(path)}]"
-        if label not in self._run_paths:
-            self._run_paths[label] = path
-            self._run_combo.addItem(label)
+        # Rescan to pick up any new files
+        self._scan_npz_files()
 
     def _on_open_npz(self):
         path = QFileDialog.getExistingDirectory(self, "Select .npz Data Directory")
