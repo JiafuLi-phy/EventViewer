@@ -755,19 +755,18 @@ def plot_event_full(
             highlight_idx=highlight_peak_idx,
         )
         ax_wf_log.set_yscale("symlog", linthresh=1e-3, linscale=0.5)
-        # Auto-scale upper limit to 1.5x the max peak amplitude
+        # Auto-scale upper limit: linear panel uses tight_ylim, log uses 15x
         if has_waveform(peaks):
             max_amp = max(float(p['data'][:int(p['length'])].max()) for p in peaks if int(p['length']) > 0)
-            ax_wf_log.set_ylim(bottom=1e-3, top=max(1e-2, max_amp * 1.5))
+            ax_wf_log.set_ylim(bottom=1e-3, top=max(1e-2, max_amp * 15))
         else:
-            # Estimate from model pulse: height ~ area / (width * 2)
             max_est = 0
             for p in peaks:
                 area = float(p['area'])
                 w = float(p['range_90p_area']) if 'range_90p_area' in p.dtype.names else 100
                 est_h = area / (w * 2) if w > 0 else area / 200
                 max_est = max(max_est, est_h)
-            ax_wf_log.set_ylim(bottom=1e-3, top=max(1e-2, max_est * 1.5))
+            ax_wf_log.set_ylim(bottom=1e-3, top=max(1e-2, max_est * 15))
     ax_wf.set_title("Event waveform: top + bottom + total",
                     fontsize=_rsize + 3, fontweight="bold")
 
