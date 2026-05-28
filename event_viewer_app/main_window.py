@@ -355,6 +355,8 @@ class MainWindow(QMainWindow):
             os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'dali_probe'),
             os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'),
             os.getcwd(),
+            os.path.expanduser('~/Desktop/EventViewer/dali_probe'),
+            os.path.expanduser('~/Desktop/EventViewer/scripts/output'),
         ]
         if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
             search_dirs.insert(0, sys._MEIPASS)
