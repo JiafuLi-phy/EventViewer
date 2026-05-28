@@ -336,7 +336,7 @@ def plot_peak_markers(
     ax.set_ylabel("log₁₀(area) / max")
     ax.set_xlabel("Time [μs]")
     if legend:
-        ax.legend(loc="upper left", fontsize=style.plt.rcParams["font.size"] - 1)
+        ax.legend(loc="upper right", fontsize=style.plt.rcParams["legend.fontsize"])
     return ax
 
 
@@ -528,7 +528,7 @@ def plot_peaks(
     ax.axhline(0, color="k", alpha=0.15, linewidth=0.4)
     ax.set_xlabel("Time [μs]", fontsize=style.plt.rcParams["font.size"] + 1, fontweight="bold")
     if legend:
-        ax.legend(loc="upper left", fontsize=style.plt.rcParams["font.size"] - 1)
+        ax.legend(loc="upper right", fontsize=style.plt.rcParams["legend.fontsize"])
     return ax
 
 
@@ -630,7 +630,7 @@ def plot_pmt_hit_pattern(
 
     if show_colorbar:
         cbar = ax.figure.colorbar(sc, ax=ax, fraction=0.046, pad=0.04)
-        cbar.set_label(label or "Area [PE]", fontsize=style.plt.rcParams["font.size"] - 1)
+        cbar.set_label(label or "Area [PE]", fontsize=style.plt.rcParams["legend.fontsize"])
 
     # Set aspect and limits AFTER colorbar to avoid distortion
     ax.set_aspect("equal")
@@ -830,7 +830,7 @@ def _draw_3layer_waveform(
         ax.set_xlabel("Time [μs]", fontweight="bold")
         ax.set_ylabel("Real peak waveform [PE/ns]")
         style.tighten_ylim(ax)
-        leg = ax.legend(loc="upper left", fontsize=style.plt.rcParams["font.size"] - 1)
+        leg = ax.legend(loc="upper right", fontsize=style.plt.rcParams["legend.fontsize"])
         for txt in leg.get_texts():
             txt.set_picker(True)
         ax._legend_artists = {k: v for k, v in legend_artists.items() if v}
@@ -874,7 +874,7 @@ def _draw_3layer_waveform(
         ax.set_xlabel("Time [μs]", fontweight="bold")
         ax.set_ylabel("Intensity [PE/ns]")
         style.tighten_ylim(ax)
-        leg = ax.legend(loc="upper left", fontsize=style.plt.rcParams["font.size"] - 1)
+        leg = ax.legend(loc="upper right", fontsize=style.plt.rcParams["legend.fontsize"])
         for txt in leg.get_texts():
             txt.set_picker(True)
         return
@@ -943,7 +943,7 @@ def _draw_3layer_waveform(
     ax.set_xlabel("Time [μs]", fontweight="bold")
     ax.set_ylabel("Model pulse [PE/ns]")
     style.tighten_ylim(ax)
-    leg = ax.legend(loc="upper left", fontsize=style.plt.rcParams["font.size"] - 1)
+    leg = ax.legend(loc="upper right", fontsize=style.plt.rcParams["legend.fontsize"])
     for txt in leg.get_texts():
         txt.set_picker(True)
     # Collect all artists from the 3 passes
@@ -1098,7 +1098,7 @@ def plot_peak_stack(
     ax.set_ylabel("Amplitude [PE/ns]" if not normalize else "Norm. amplitude")
     ptype_label = style.PEAK_LABELS.get(peak_type, f"type={peak_type}")
     ax.set_title(title or f"{n_wf} {ptype_label} peaks stacked")
-    ax.legend(loc="upper left", fontsize=style.plt.rcParams["font.size"] - 1)
+    ax.legend(loc="upper right", fontsize=style.plt.rcParams["legend.fontsize"])
 
     style.tighten_ylim(ax)
     return fig
@@ -1159,7 +1159,7 @@ def _annotate_peak_info(ax: plt.Axes, event: np.ndarray, prefix: str) -> None:
     ax.text(
         0.97, 0.95, text,
         transform=ax.transAxes,
-        fontsize=style.plt.rcParams["font.size"] - 1,
+        fontsize=style.plt.rcParams["legend.fontsize"],
         color=color,
         fontweight="bold",
         va="top", ha="right",
@@ -1211,7 +1211,7 @@ def _mark_peak_span(
     ax.axvspan(x1, x2, color=color, alpha=0.08, linewidth=0)
     ax.annotate(
         prefix.upper(), (x1, yh),
-        fontsize=style.plt.rcParams["font.size"] - 1,
+        fontsize=style.plt.rcParams["legend.fontsize"],
         color=color, fontweight="bold", va="top", ha="left",
     )
 
@@ -1339,7 +1339,7 @@ def plot_peak_zoom(
     style.tighten_ylim(ax_wf)
 
     # Interactive legend: click to toggle top/bottom/total
-    leg = ax_wf.legend(loc="upper left", fontsize=_rsize - 1)
+    leg = ax_wf.legend(loc="upper right", fontsize=_rsize - 1)
     for lh in leg.legend_handles:
         lh.set_picker(True)
         lh.set_linewidth(2.0)
