@@ -796,7 +796,7 @@ def _draw_3layer_waveform(
         for i, p in enumerate(peaks):
             orig_i = original_idx[i]
             ptype = int(p["type"])
-            total_color = style.PEAK_COLORS.get(ptype, style.NEUTRAL_MID)
+            total_color = "#F44336"  # bright red
             top_lbl = "Top" if "top" not in plotted_types else None
             bot_lbl = "Bottom" if "bottom" not in plotted_types else None
             total_lbl = "Total" if "total" not in plotted_types else None
