@@ -102,6 +102,7 @@ class DataManager:
         self._peaks_by_idx = list(bundle["peaks_list"])
         self._eac_by_idx = list(bundle.get("eac_list", [None] * len(self._events)))
         self._raw_records_by_idx = list(bundle.get("raw_records_list", [None] * len(self._events)))
+        self._positions_by_idx = list(bundle.get("peak_positions", [None] * len(self._events)))
         self._event_to_idx = {}
         for i, ev in enumerate(self._events):
             ev_num = int(ev["event_number"])
@@ -320,6 +321,14 @@ class DataManager:
 
     def get_to_pe(self) -> Optional[np.ndarray]:
         return self._to_pe
+
+    def get_peak_positions(self, event_number: int) -> Optional[np.ndarray]:
+        """Return per-peak x,y positions for *event_number*."""
+        idx = self._event_to_idx.get(event_number)
+        if idx is not None and hasattr(self, '_positions_by_idx') and self._positions_by_idx:
+            if idx < len(self._positions_by_idx):
+                return self._positions_by_idx[idx]
+        return None
 
     def get_event_area_per_channel(self, event_number: int) -> Optional[np.ndarray]:
         """Return eac row for *event_number*."""

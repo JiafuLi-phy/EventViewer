@@ -109,7 +109,7 @@ class PeakListWidget(QWidget):
         self._event_time_ns = None
 
     def populate(self, peaks, main_s1_idx=None, main_s2_idx=None, event_time_ns=None,
-                 drift_time_us=None, s2_x=None, s2_y=None):
+                 drift_time_us=None, s2_x=None, s2_y=None, peak_positions=None):
         """Fill table with peak data."""
         self._all_peaks = peaks if peaks is not None else np.array([])
         self._main_s1_idx = main_s1_idx
@@ -117,6 +117,7 @@ class PeakListWidget(QWidget):
         self._event_time_ns = event_time_ns
         self._s2_x = s2_x
         self._s2_y = s2_y
+        self._peak_positions = peak_positions
         # Update event info label
         parts = []
         if drift_time_us is not None:
@@ -265,11 +266,16 @@ class PeakListWidget(QWidget):
             item = self.NumericItem(f"{rise:.1f}")
             self._table.setItem(row, 3, item)
 
-            # X, Y position: show event's S2 position for S2 peaks
-            if ptype == 2 and self._s2_x is not None and self._s2_y is not None:
-                item = self.NumericItem(f"{self._s2_x:.1f}")
+            # X, Y position: use per-peak positions if available
+            px, py = None, None
+            if self._peak_positions is not None and orig_i < len(self._peak_positions):
+                pp = self._peak_positions[orig_i]
+                if len(pp) == 2 and not np.isnan(pp[0]):
+                    px, py = pp[0], pp[1]
+            if px is not None and py is not None:
+                item = self.NumericItem(f"{px:.1f}")
                 self._table.setItem(row, 4, item)
-                item = self.NumericItem(f"{self._s2_y:.1f}")
+                item = self.NumericItem(f"{py:.1f}")
                 self._table.setItem(row, 5, item)
             else:
                 self._table.setItem(row, 4, QTableWidgetItem("—"))
@@ -694,8 +700,9 @@ class MainWindow(QMainWindow):
             drift_us = None
             if "s1_time" in event.dtype.names and "s2_time" in event.dtype.names:
                 drift_us = (int(event["s2_time"]) - int(event["s1_time"])) / 1000
-            s2x = float(event["s2_x"]) if "s2_x" in event.dtype.names else None
-            s2y = float(event["s2_y"]) if "s2_y" in event.dtype.names else None
+            s2x = float(event["s2_x_cnn"]) if "s2_x_cnn" in event.dtype.names else (float(event["s2_x"]) if "s2_x" in event.dtype.names else None)
+            s2y = float(event["s2_y_cnn"]) if "s2_y_cnn" in event.dtype.names else (float(event["s2_y"]) if "s2_y" in event.dtype.names else None)
+            peak_positions = self._dm.get_peak_positions(event_number)
             self._peak_list.populate(
                 peaks,
                 main_s1_idx=s1_idx,
@@ -703,6 +710,7 @@ class MainWindow(QMainWindow):
                 event_time_ns=event_time_ns,
                 drift_time_us=drift_us,
                 s2_x=s2x, s2_y=s2y,
+                peak_positions=peak_positions,
             )
 
             # Render
