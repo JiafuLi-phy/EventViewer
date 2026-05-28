@@ -50,7 +50,7 @@ class StraxLoadWorker(QObject):
 class PeakListWidget(QWidget):
     """Table widget listing all peaks for the current event."""
 
-    COLUMNS = ["Type", "Area [PE]", "Width [μs]", "Rise [μs]", "X [cm]", "Y [cm]"]
+    COLUMNS = ["Type", "Area [PE]", "Width [μs]", "Rise [μs]", "Height [PE/μs]", "X [cm]", "Y [cm]"]
 
     class NumericItem(QTableWidgetItem):
         @staticmethod
@@ -151,9 +151,10 @@ class PeakListWidget(QWidget):
 
         rise = float(p["rise_time"]) / 1000 if "rise_time" in p.dtype.names else 0
         t0 = int(self._event_time_ns) if self._event_time_ns is not None else 0
-        ev_time = (int(p["time"]) - t0) / 1000
+        # Height estimate: area / width ≈ average amplitude
+        height = float(p["area"]) / width if width > 0 else 0
 
-        return display_type, float(p["area"]), width, rise, ev_time
+        return display_type, float(p["area"]), width, rise, height
 
     def _matches_query(self, p, orig_i, query: str) -> bool:
         if not query:
@@ -249,7 +250,7 @@ class PeakListWidget(QWidget):
             self._table.insertRow(row)
 
             ptype = int(p["type"])
-            display_type, area, width, rise, ev_time = self._peak_display_values(p, int(orig_i))
+            display_type, area, width, rise, height = self._peak_display_values(p, int(orig_i))
 
             # Type
             item = QTableWidgetItem(display_type)
@@ -263,10 +264,13 @@ class PeakListWidget(QWidget):
             item = self.NumericItem(f"{width:.1f}")
             self._table.setItem(row, 2, item)
 
-            item = self.NumericItem(f"{rise:.1f}")
+            item = self.NumericItem(f"{rise:.2f}")
             self._table.setItem(row, 3, item)
 
-            # X, Y position: use per-peak positions if available
+            item = self.NumericItem(f"{height:.1f}")
+            self._table.setItem(row, 4, item)
+
+            # X, Y position
             px, py = None, None
             if self._peak_positions is not None and orig_i < len(self._peak_positions):
                 pp = self._peak_positions[orig_i]
@@ -274,12 +278,12 @@ class PeakListWidget(QWidget):
                     px, py = pp[0], pp[1]
             if px is not None and py is not None:
                 item = self.NumericItem(f"{px:.1f}")
-                self._table.setItem(row, 4, item)
-                item = self.NumericItem(f"{py:.1f}")
                 self._table.setItem(row, 5, item)
+                item = self.NumericItem(f"{py:.1f}")
+                self._table.setItem(row, 6, item)
             else:
-                self._table.setItem(row, 4, QTableWidgetItem("—"))
                 self._table.setItem(row, 5, QTableWidgetItem("—"))
+                self._table.setItem(row, 6, QTableWidgetItem("—"))
 
             # Color-code S1/S2 rows
             if ptype == 1:
