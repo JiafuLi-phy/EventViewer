@@ -754,8 +754,8 @@ def plot_event_full(
             raw_records=raw_records, to_pe=to_pe, pmt_positions=pmt_positions,
             highlight_idx=highlight_peak_idx,
         )
-        ax_wf_log.set_yscale("symlog", linthresh=1e-10, linscale=0.5)
-        ax_wf_log.set_ylim(bottom=1e-10)
+        ax_wf_log.set_yscale("symlog", linthresh=1e-3, linscale=0.5)
+        ax_wf_log.set_ylim(bottom=1e-3)
     ax_wf.set_title("Event waveform: top + bottom + total",
                     fontsize=_rsize + 3, fontweight="bold")
 
@@ -772,7 +772,7 @@ def plot_event_full(
     for ax_pmt, arr_name in [(ax_pmt_top, "top"), (ax_pmt_bot, "bottom")]:
         plot_pmt_hit_pattern(ev_area, pmt_positions, to_pe,
                              array_name=arr_name, ax=ax_pmt, cmap="plasma",
-                             vmin=0, marker_size=60,
+                             vmin=0, marker_size=40,
                              show_colorbar=True, label="Area [PE]")
         ax_pmt.set_title(f"Event {arr_name.capitalize()} PMT", fontweight="bold")
 

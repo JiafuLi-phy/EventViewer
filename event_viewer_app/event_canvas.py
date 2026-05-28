@@ -185,6 +185,11 @@ class EventCanvas(QWidget):
                                         a.set_visible(v)
                             self._canvas.draw_idle()
                             return
+        # PMT pattern click: open zoomed standalone figure
+        if event.inaxes.collections and not event.inaxes.lines:
+            self._zoom_pmt_pattern(event.inaxes)
+            return
+
         # peak hit test
         regions = getattr(event.inaxes, '_peak_regions', None)
         if not regions:
@@ -219,6 +224,33 @@ class EventCanvas(QWidget):
         ax.set_xlim(cx - (cx - xmin) * s, cx + (xmax - cx) * s)
         ax.set_ylim(cy - (cy - ymin) * s, cy + (ymax - cy) * s)
         self._canvas.draw()
+
+    def _zoom_pmt_pattern(self, ax):
+        """Open a standalone zoomed PMT hit pattern figure."""
+        import matplotlib.pyplot as plt
+        title = ax.get_title()
+        fig, new_ax = plt.subplots(figsize=(8, 8))
+        # Copy PMT scatter data
+        for coll in ax.collections:
+            if hasattr(coll, 'get_offsets'):
+                offsets = coll.get_offsets()
+                facecolors = coll.get_facecolors()
+                new_ax.scatter(offsets[:, 0], offsets[:, 1],
+                              s=100, c=facecolors, edgecolors='white', linewidths=0.3)
+        # Copy circle artists
+        for artist in ax.artists:
+            if hasattr(artist, 'radius'):
+                import matplotlib.pyplot as plt2
+                r = artist.radius
+                new_ax.add_artist(plt2.Circle((0, 0), r, edgecolor='k', facecolor='none', linewidth=1.2))
+        new_ax.set_aspect('equal')
+        new_ax.set_xlim(ax.get_xlim())
+        new_ax.set_ylim(ax.get_ylim())
+        new_ax.set_xlabel(ax.get_xlabel())
+        new_ax.set_ylabel(ax.get_ylabel())
+        new_ax.set_title(title)
+        fig.tight_layout()
+        fig.show()
 
     def _on_hover(self, event):
         if event.inaxes is None:
