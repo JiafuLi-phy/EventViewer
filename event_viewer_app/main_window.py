@@ -10,7 +10,7 @@ from .qt_compat import (
     QFileDialog, QMessageBox, QLabel, QInputDialog,
     QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView,
     QWidget, QVBoxLayout, QHBoxLayout, QShortcut, QComboBox,
-    QGroupBox, QPushButton,
+    QGroupBox, QPushButton, QLineEdit,
 )
 from .qt_compat import Qt, QObject, QThread, Signal, Slot
 from .qt_compat import QAction, QKeySequence
@@ -75,9 +75,17 @@ class PeakListWidget(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(2)
 
+        header_row = QHBoxLayout()
+        header_row.setContentsMargins(0, 0, 0, 0)
         header = QLabel("Peaks")
         header.setStyleSheet("font-weight: bold; font-size: 12px; padding: 4px 0;")
-        layout.addWidget(header)
+        header_row.addWidget(header)
+        self._search_edit = QLineEdit()
+        self._search_edit.setPlaceholderText("peak search...")
+        self._search_edit.setMaximumWidth(180)
+        self._search_edit.textChanged.connect(self._apply_search)
+        header_row.addWidget(self._search_edit)
+        layout.addLayout(header_row)
 
         self._table = QTableWidget(0, len(self.COLUMNS))
         self._table.setHorizontalHeaderLabels(self.COLUMNS)
@@ -91,9 +99,74 @@ class PeakListWidget(QWidget):
         layout.addWidget(self._table)
 
         self._peak_indices = []  # maps table row → original peak index
+        self._all_peaks = np.array([])
+        self._main_s1_idx = None
+        self._main_s2_idx = None
+        self._event_time_ns = None
 
     def populate(self, peaks: np.ndarray, main_s1_idx=None, main_s2_idx=None, event_time_ns=None):
-        """Fill table with peak data. *peaks* is a structured array sorted by area desc."""
+        """Fill table with peak data. *peaks* is kept in original event order."""
+        self._all_peaks = peaks if peaks is not None else np.array([])
+        self._main_s1_idx = main_s1_idx
+        self._main_s2_idx = main_s2_idx
+        self._event_time_ns = event_time_ns
+        self._render_table()
+
+    def _apply_search(self):
+        self._render_table()
+
+    def _peak_display_values(self, p, orig_i):
+        ptype = int(p["type"])
+        type_label = style.PEAK_LABELS.get(ptype, f"?{ptype}")
+        display_type = type_label
+        if orig_i == self._main_s1_idx:
+            display_type = "Main S1"
+        elif orig_i == self._main_s2_idx:
+            display_type = "Main S2"
+
+        if "range_90p_area" in p.dtype.names:
+            width = float(p["range_90p_area"]) / 1000
+        else:
+            if "endtime" in p.dtype.names:
+                width = (int(p["endtime"]) - int(p["time"])) / 1000
+            elif "length" in p.dtype.names and "dt" in p.dtype.names:
+                width = int(p["length"]) * int(p["dt"]) / 1000
+            else:
+                width = 0
+
+        rise = float(p["rise_time"]) / 1000 if "rise_time" in p.dtype.names else 0
+        t0 = int(self._event_time_ns) if self._event_time_ns is not None else 0
+        ev_time = (int(p["time"]) - t0) / 1000
+
+        return display_type, float(p["area"]), width, rise, ev_time
+
+    def _matches_query(self, p, orig_i, query: str) -> bool:
+        if not query:
+            return True
+        tokens = query.lower().replace("#", " ").split()
+        if len(tokens) >= 2 and tokens[0] in ("idx", "index", "peak"):
+            try:
+                return orig_i == int(tokens[1])
+            except ValueError:
+                return False
+        display_type, area, width, rise, ev_time = self._peak_display_values(p, orig_i)
+        ptype = int(p["type"])
+        haystack = " ".join([
+            display_type,
+            style.PEAK_LABELS.get(ptype, ""),
+            f"type {ptype}",
+            f"index {orig_i}",
+            f"idx {orig_i}",
+            f"{orig_i}",
+            f"{area:.0f}",
+            f"{width:.1f}",
+            f"{rise:.1f}",
+            f"{ev_time:.1f}",
+        ]).lower()
+        return all(token in haystack for token in tokens)
+
+    def _render_table(self):
+        peaks = self._all_peaks
         self._table.setSortingEnabled(False)
         self._table.setRowCount(0)
         self._peak_indices = []
@@ -105,54 +178,44 @@ class PeakListWidget(QWidget):
             groups = np.full(len(peaks), 4, dtype=int)
             groups[peaks['type'] == 1] = 2
             groups[peaks['type'] == 2] = 3
-            if main_s1_idx is not None and main_s1_idx < len(peaks):
-                groups[main_s1_idx] = 0
-            if main_s2_idx is not None and main_s2_idx < len(peaks):
-                groups[main_s2_idx] = 1
+            if self._main_s1_idx is not None and self._main_s1_idx < len(peaks):
+                groups[self._main_s1_idx] = 0
+            if self._main_s2_idx is not None and self._main_s2_idx < len(peaks):
+                groups[self._main_s2_idx] = 1
             # Sort by (group, -area)
             order = np.lexsort((-peaks["area"], groups))
             peaks = peaks[order]
             original_idx = original_idx[order]
+        else:
+            original_idx = []
+
+        query = self._search_edit.text().strip()
 
         for i, p in enumerate(peaks):
             orig_i = original_idx[i]
+            if not self._matches_query(p, int(orig_i), query):
+                continue
             row = self._table.rowCount()
             self._table.insertRow(row)
 
             ptype = int(p["type"])
-            type_label = style.PEAK_LABELS.get(ptype, f"?{ptype}")
-            type_color = style.PEAK_COLORS.get(ptype, style.NEUTRAL_MID)
+            display_type, area, width, rise, ev_time = self._peak_display_values(p, int(orig_i))
 
             # Type
-            item = QTableWidgetItem(type_label)
+            item = QTableWidgetItem(display_type)
             item.setForeground(Qt.GlobalColor.black)
             self._table.setItem(row, 0, item)
 
             # Area
-            item = self.NumericItem(f"{float(p['area']):.0f}")
+            item = self.NumericItem(f"{area:.0f}")
             self._table.setItem(row, 1, item)
 
-            # Width (range_90p_area or duration), convert ns->μs
-            if "range_90p_area" in p.dtype.names:
-                width = float(p["range_90p_area"]) / 1000
-            else:
-                if "endtime" in p.dtype.names:
-                    width = (int(p["endtime"]) - int(p["time"])) / 1000
-                elif "length" in p.dtype.names and "dt" in p.dtype.names:
-                    width = int(p["length"]) * int(p["dt"]) / 1000
-                else:
-                    width = 0
             item = self.NumericItem(f"{width:.1f}")
             self._table.setItem(row, 2, item)
 
-            # Rise time (ns->μs)
-            rise = float(p["rise_time"]) / 1000 if "rise_time" in p.dtype.names else 0
             item = self.NumericItem(f"{rise:.1f}")
             self._table.setItem(row, 3, item)
 
-            # Time relative to event start (ns->μs), matching waveform x-axis.
-            t0 = int(event_time_ns) if event_time_ns is not None else 0
-            ev_time = (int(p["time"]) - t0) / 1000
             item = self.NumericItem(f"{ev_time:.1f}")
             self._table.setItem(row, 4, item)
 
@@ -165,13 +228,11 @@ class PeakListWidget(QWidget):
                     self._table.item(row, col).setBackground(Qt.GlobalColor(0xE8F8E8))
 
             # Bold rename for main S1/S2
-            if orig_i == main_s1_idx:
+            if orig_i == self._main_s1_idx:
                 type_item = self._table.item(row, 0)
-                type_item.setText("Main S1")
                 font = type_item.font(); font.setBold(True); type_item.setFont(font)
-            elif orig_i == main_s2_idx:
+            elif orig_i == self._main_s2_idx:
                 type_item = self._table.item(row, 0)
-                type_item.setText("Main S2")
                 font = type_item.font(); font.setBold(True); type_item.setFont(font)
 
             for col in range(len(self.COLUMNS)):
