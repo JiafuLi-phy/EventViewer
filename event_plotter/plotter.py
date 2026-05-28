@@ -1463,12 +1463,9 @@ def _make_event_title(event: np.ndarray, run_id: Optional[str] = None) -> str:
     evt_num = event["event_number"] if "event_number" in event.dtype.names else "?"
     if run_id is None:
         run_id = event["run_id"] if "run_id" in event.dtype.names else "?"
-    t_ns = int(event["time"])
-    # human-readable time
-    try:
-        import datetime
-        dt = datetime.datetime.utcfromtimestamp(t_ns / 1000)
-        ts = dt.strftime("%Y-%m-%d %H:%M:%S UTC")
-    except Exception:
-        ts = f"{t_ns} ns"
-    return f"Event {evt_num}  |  Run {run_id}  |  {ts}"
+    parts = [f"Event {evt_num}", f"Run {run_id}"]
+    # Drift time in μs
+    if "s1_time" in event.dtype.names and "s2_time" in event.dtype.names:
+        drift = (int(event["s2_time"]) - int(event["s1_time"])) / 1000
+        parts.append(f"Drift: {drift:.1f} μs")
+    return "  |  ".join(parts)
