@@ -111,7 +111,7 @@ def apply_style(
 
     # ── legend ──
     plt.rcParams["legend.frameon"] = False
-    plt.rcParams["legend.fontsize"] = font_size + 56
+    plt.rcParams["legend.fontsize"] = 36
     plt.rcParams["legend.handlelength"] = 2.0
     plt.rcParams["legend.handletextpad"] = 0.8
     plt.rcParams["legend.borderpad"] = 0.6
