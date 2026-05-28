@@ -96,8 +96,8 @@ if sys.platform == "darwin":
         info_plist={
             "NSHighResolutionCapable": True,
             "CFBundleName": "XENONnT Event Viewer",
-            "CFBundleShortVersionString": "2.0.1",
-            "CFBundleVersion": "2.0.1",
+            "CFBundleShortVersionString": "2.0.2",
+            "CFBundleVersion": "2.0.2",
             "CFBundleInfoDictionaryVersion": "6.0",
             "CFBundlePackageType": "APPL",
             "LSEnvironment": {

@@ -49,7 +49,7 @@
 - [x] Total: 6 runs, 430 events, all with real waveform data
 
 ### Build
-- [x] Info.plist version 2.0.1 (PlistBuddy injection in build_mac.sh)
+- [x] Info.plist version 2.0.2 (PlistBuddy injection in build_mac.sh)
 - [x] backend_pdf, backend_agg added to PyInstaller hidden imports
 - [x] Export Ctrl+S → Desktop (no dialog)
 - [x] Toolbar save button fixed (toolbar.canvas updated after clear())

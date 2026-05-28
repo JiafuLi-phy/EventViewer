@@ -37,10 +37,10 @@ echo "=== Building ==="
 
 echo "=== Setting bundle version ==="
 PLIST="dist/XENONnT-EventViewer.app/Contents/Info.plist"
-/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString 2.0.1" "$PLIST" 2>/dev/null || \
-  /usr/libexec/PlistBuddy -c "Add :CFBundleShortVersionString string 2.0.1" "$PLIST"
-/usr/libexec/PlistBuddy -c "Set :CFBundleVersion 2.0.1" "$PLIST" 2>/dev/null || \
-  /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string 2.0.1" "$PLIST"
+/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString 2.0.2" "$PLIST" 2>/dev/null || \
+  /usr/libexec/PlistBuddy -c "Add :CFBundleShortVersionString string 2.0.2" "$PLIST"
+/usr/libexec/PlistBuddy -c "Set :CFBundleVersion 2.0.2" "$PLIST" 2>/dev/null || \
+  /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string 2.0.2" "$PLIST"
 
 echo "=== Deploying ==="
 rm -rf "/Applications/XENONnT-EventViewer.app"

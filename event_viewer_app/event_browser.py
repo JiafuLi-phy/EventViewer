@@ -151,6 +151,18 @@ class EventBrowser(QWidget):
             mask &= events["s2_area"] > self._s2_min.value()
 
         filtered = events[mask]
+
+        # Apply event-number search on top of S1/S2 filters.  Users often
+        # type "#38991" from the visible list or only the last few digits.
+        query = self._search_edit.text().strip().lstrip("#")
+        if query:
+            filtered = filtered[
+                np.array(
+                    [query in str(int(ev["event_number"])) for ev in filtered],
+                    dtype=bool,
+                )
+            ]
+
         # Sort by S2 descending if available
         if "s2_area" in events.dtype.names:
             order = np.argsort(filtered["s2_area"])[::-1]
@@ -185,19 +197,8 @@ class EventBrowser(QWidget):
     # ── search ────────────────────────────────────────────────────
 
     def _on_search(self, text: str):
-        """Scroll to the event matching the search text."""
-        text = text.strip()
-        if not text:
-            return
-        try:
-            target = int(text)
-        except ValueError:
-            return
-        for i in range(self._list.count()):
-            item = self._list.item(i)
-            if item.data(Qt.UserRole) == target:
-                self._list.setCurrentRow(i)
-                return
+        """Filter the event list by event number as the user types."""
+        self._populate_list()
 
     # ── selection ─────────────────────────────────────────────────
 
