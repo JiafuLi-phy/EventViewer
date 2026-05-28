@@ -849,7 +849,7 @@ def _draw_3layer_waveform(
         )
         artists = _plot_step_arrays(
             ax, x, [y_top, y_bot, y_total],
-            ["#2196F3", "#4CAF50", style.NEUTRAL_BLACK],
+            ["#2196F3", "#4CAF50", "#F44336"],
             ["Top", "Bottom", "Total"],
             linewidths=[1.35, 1.35, 2.4],
             alphas=[0.18, 0.18, 0.12],
@@ -910,7 +910,7 @@ def _draw_3layer_waveform(
             label=bot_lbl)
 
         plot_peak_waveform_model(p, t0=t0, ax=ax,
-            color=c, alpha_fill=0.15, linewidth=1.2 * lw_scale, label=lbl)
+            color="#F44336", alpha_fill=0.15, linewidth=1.2 * lw_scale, label=lbl)
 
         x_start = (int(p["time"]) - t0) / 1e9
         end_ns = int(p["endtime"]) if "endtime" in p.dtype.names else int(p["time"]) + int(p["length"]) * int(p["dt"])
@@ -1280,7 +1280,7 @@ def plot_peak_zoom(
             ax_wf, x, [y_top, y_bot, y_total],
             [top_color, bot_color, sum_color],
             [f"Top PMT ({area_top:.0f} PE)", f"Bottom PMT ({area_bot:.0f} PE)", f"Total ({area_total:.0f} PE)"],
-            linewidths=[0.8, 0.8, 1.5],
+            linewidths=[2.4, 2.4, 4.5],
             alphas=[0.25, 0.25, 0.18],
         )
         artists_top = artists[f"top pmt ({area_top:.0f} pe)"]
