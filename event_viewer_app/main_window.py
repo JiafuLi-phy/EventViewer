@@ -258,7 +258,7 @@ class PeakListWidget(QWidget):
             self._table.setItem(row, 0, item)
 
             # Area
-            item = self.NumericItem(f"{area:.0f}")
+            item = self.NumericItem(f"{area:.1f}")
             self._table.setItem(row, 1, item)
 
             item = self.NumericItem(f"{width:.1f}")
