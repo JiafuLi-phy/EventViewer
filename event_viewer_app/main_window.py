@@ -274,7 +274,6 @@ class PeakListWidget(QWidget):
                 self._table.item(row, col).setData(Qt.UserRole, int(orig_i))
             self._peak_indices.append(int(orig_i))
 
-        self._table.setSortingEnabled(True)
         self._table.resizeColumnsToContents()
 
     def get_selected_peak_index(self) -> int:
