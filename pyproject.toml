@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "xenonnt-event-viewer"
-version = "2.0.4"
+version = "2.0.5"
 description = "Cross-platform desktop application for browsing XENONnT event waveforms, PMT hit patterns, and signal properties"
 readme = "README.md"
 license = {text = "MIT"}

@@ -29,11 +29,14 @@ jobs:
 
       - name: Install Python deps
         run: |
+          python3 -m venv .venv
+          source .venv/bin/activate
           python -m pip install --upgrade pip
-          python -m pip install pyside6 matplotlib numpy strax pyinstaller
+          python -m pip install pyside6 matplotlib numpy pyinstaller
 
       - name: Build
         run: |
+          source .venv/bin/activate
           pyinstaller EventViewer.spec --distpath dist --workpath /tmp/pyinstaller_linux
 
       - name: Package
@@ -67,11 +70,14 @@ jobs:
 
       - name: Install Python deps
         run: |
+          python -m venv .venv
+          source .venv/Scripts/activate
           python -m pip install --upgrade pip
-          python -m pip install pyside6 matplotlib numpy strax pyinstaller
+          python -m pip install pyside6 matplotlib numpy pyinstaller
 
       - name: Build
         run: |
+          source .venv/Scripts/activate
           pyinstaller EventViewer.spec --distpath dist --workpath "$RUNNER_TEMP/pyinstaller_win"
 
       - name: Package
@@ -111,11 +117,14 @@ jobs:
 
       - name: Install Python deps
         run: |
+          python3 -m venv .venv
+          source .venv/bin/activate
           python3 -m pip install --upgrade pip
-          python3 -m pip install pyside6 matplotlib numpy strax pyinstaller
+          python3 -m pip install pyside6 matplotlib numpy pyinstaller
 
       - name: Build
         run: |
+          source .venv/bin/activate
           pyinstaller EventViewer.spec --distpath dist --workpath /tmp/pyinstaller_mac
 
       - name: Package
@@ -152,11 +161,14 @@ jobs:
 
       - name: Install Python deps
         run: |
+          python3 -m venv .venv
+          source .venv/bin/activate
           python3 -m pip install --upgrade pip
-          python3 -m pip install pyside6 matplotlib numpy strax pyinstaller
+          python3 -m pip install pyside6 matplotlib numpy pyinstaller
 
       - name: Build
         run: |
+          source .venv/bin/activate
           pyinstaller EventViewer.spec --distpath dist --workpath /tmp/pyinstaller_mac
 
       - name: Package
