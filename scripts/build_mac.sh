@@ -18,6 +18,7 @@ echo "=== Building ==="
   --onedir \
   --windowed \
   --name XENONnT-EventViewer \
+  --icon assets/app-icon.icns \
   "${DATA_ARGS[@]}" \
   --hidden-import PySide6.QtCore \
   --hidden-import PySide6.QtGui \
@@ -37,10 +38,10 @@ echo "=== Building ==="
 
 echo "=== Setting bundle version ==="
 PLIST="dist/XENONnT-EventViewer.app/Contents/Info.plist"
-/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString 2.0.6" "$PLIST" 2>/dev/null || \
-  /usr/libexec/PlistBuddy -c "Add :CFBundleShortVersionString string 2.0.6" "$PLIST"
-/usr/libexec/PlistBuddy -c "Set :CFBundleVersion 2.0.6" "$PLIST" 2>/dev/null || \
-  /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string 2.0.6" "$PLIST"
+/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString 2.0.7" "$PLIST" 2>/dev/null || \
+  /usr/libexec/PlistBuddy -c "Add :CFBundleShortVersionString string 2.0.7" "$PLIST"
+/usr/libexec/PlistBuddy -c "Set :CFBundleVersion 2.0.7" "$PLIST" 2>/dev/null || \
+  /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string 2.0.7" "$PLIST"
 
 echo "=== Deploying ==="
 rm -rf "/Applications/XENONnT-EventViewer.app"

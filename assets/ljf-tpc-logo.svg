@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">LJF TPC logo</title>
+  <desc id="desc">Vector logo combining a cylindrical TPC detector, PMT arrays, field lines, and the letters LJF.</desc>
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="42%" r="62%">
+      <stop offset="0%" stop-color="#173f6f"/>
+      <stop offset="56%" stop-color="#0a2446"/>
+      <stop offset="100%" stop-color="#041126"/>
+    </radialGradient>
+    <linearGradient id="xenon" x1="284" y1="174" x2="740" y2="850" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#eaf9ff"/>
+      <stop offset="44%" stop-color="#48d7ff"/>
+      <stop offset="100%" stop-color="#1769b5"/>
+    </linearGradient>
+    <linearGradient id="signal" x1="360" y1="280" x2="690" y2="736" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#f7f1b7"/>
+      <stop offset="100%" stop-color="#69e7ff"/>
+    </linearGradient>
+    <filter id="softGlow" x="-35%" y="-35%" width="170%" height="170%">
+      <feGaussianBlur stdDeviation="11" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <style>
+      .shell { fill: none; stroke: url(#xenon); stroke-width: 24; stroke-linecap: round; stroke-linejoin: round; }
+      .thin { fill: none; stroke: #8beaff; stroke-width: 8; stroke-linecap: round; opacity: .62; }
+      .field { fill: none; stroke: #58cfff; stroke-width: 6; stroke-linecap: round; opacity: .36; }
+      .cage { fill: none; stroke: #b7edf7; stroke-width: 9; stroke-linecap: round; opacity: .42; }
+      .watermark { fill: #c8f6ff; font-family: "Helvetica Neue", Arial, sans-serif; font-size: 34px; font-weight: 500; letter-spacing: 5px; opacity: .16; }
+      .pmt { fill: #dff8ff; stroke: #58d9ff; stroke-width: 4; }
+      .dm-track { fill: none; stroke: #8b7dff; stroke-width: 8; stroke-linecap: round; stroke-dasharray: 3 30; opacity: .34; }
+      .nu-track { fill: none; stroke: #73ffdc; stroke-width: 6; stroke-linecap: round; stroke-dasharray: 30 18; opacity: .42; }
+      .particle { fill: #dff8ff; stroke-width: 4; }
+    </style>
+  </defs>
+
+  <rect width="1024" height="1024" rx="218" fill="url(#bg)"/>
+  <circle cx="512" cy="512" r="396" fill="none" stroke="#184a7e" stroke-width="22" opacity=".52"/>
+  <circle cx="512" cy="512" r="348" fill="none" stroke="#3bd5ff" stroke-width="5" opacity=".25"/>
+
+  <!-- Dark matter and neutrino particle motifs, kept secondary to the detector -->
+  <g filter="url(#softGlow)">
+    <path class="dm-track" d="M226 644c112-186 318-273 572-214"/>
+    <path class="nu-track" d="M176 296c174 48 398 178 672 382"/>
+    <path class="nu-track" d="M844 270c-156 99-357 256-602 474"/>
+    <circle class="particle" cx="250" cy="610" r="9" stroke="#9f92ff" opacity=".58"/>
+    <circle class="particle" cx="764" cy="432" r="7" stroke="#9f92ff" opacity=".48"/>
+    <circle class="particle" cx="812" cy="640" r="7" stroke="#73ffdc" opacity=".58"/>
+    <circle class="particle" cx="214" cy="304" r="6" stroke="#73ffdc" opacity=".54"/>
+  </g>
+
+  <!-- TPC detector vessel -->
+  <g filter="url(#softGlow)">
+    <ellipse class="shell" cx="512" cy="246" rx="224" ry="78"/>
+    <path class="shell" d="M288 246v530c0 43 100 78 224 78s224-35 224-78V246"/>
+    <ellipse class="thin" cx="512" cy="776" rx="224" ry="78"/>
+  </g>
+
+  <!-- Field cage and drift lines -->
+  <path class="cage" d="M352 302v426"/>
+  <path class="field" d="M392 298v438"/>
+  <path class="field" d="M452 316v402"/>
+  <path class="field" d="M512 324v392"/>
+  <path class="field" d="M572 316v402"/>
+  <path class="field" d="M632 298v438"/>
+  <path class="cage" d="M672 302v426"/>
+  <path class="thin" d="M326 410c83 25 289 25 372 0"/>
+  <path class="thin" d="M326 546c83 25 289 25 372 0"/>
+  <path class="thin" d="M326 682c83 25 289 25 372 0"/>
+
+  <!-- PMT arrays -->
+  <g opacity=".96">
+    <circle class="pmt" cx="440" cy="227" r="15"/>
+    <circle class="pmt" cx="512" cy="216" r="17"/>
+    <circle class="pmt" cx="584" cy="227" r="15"/>
+    <circle class="pmt" cx="394" cy="261" r="13"/>
+    <circle class="pmt" cx="464" cy="273" r="14"/>
+    <circle class="pmt" cx="560" cy="273" r="14"/>
+    <circle class="pmt" cx="630" cy="261" r="13"/>
+
+    <circle class="pmt" cx="440" cy="789" r="15"/>
+    <circle class="pmt" cx="512" cy="802" r="17"/>
+    <circle class="pmt" cx="584" cy="789" r="15"/>
+    <circle class="pmt" cx="394" cy="754" r="13"/>
+    <circle class="pmt" cx="464" cy="741" r="14"/>
+    <circle class="pmt" cx="560" cy="741" r="14"/>
+    <circle class="pmt" cx="630" cy="754" r="13"/>
+  </g>
+
+  <!-- Reconstructed interaction and induced signal -->
+  <circle cx="558" cy="585" r="16" fill="#f7f1b7" stroke="#faffd0" stroke-width="6" opacity=".92"/>
+  <path d="M558 585c-18-50-48-93-91-128" fill="none" stroke="url(#signal)" stroke-width="11"
+        stroke-linecap="round" opacity=".78"/>
+  <path d="M322 622c47-3 56-45 98-45 52 0 61 77 124 77 43 0 55-34 97-34"
+        fill="none" stroke="url(#signal)" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"
+        opacity=".9"/>
+
+  <!-- Transparent personal watermark -->
+  <text class="watermark" x="512" y="884" text-anchor="middle">jiafu li</text>
+</svg>

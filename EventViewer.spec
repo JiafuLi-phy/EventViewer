@@ -7,6 +7,8 @@ import sys
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules, collect_dynamic_libs
 
 _PROJ = SPECPATH
+_MAC_ICON = os.path.join(_PROJ, "assets", "app-icon.icns")
+_WIN_ICON = os.path.join(_PROJ, "assets", "app-icon.ico")
 
 block_cipher = None
 
@@ -79,6 +81,7 @@ exe = EXE(
     upx_exclude=[],
     runtime_tmpdir=None,
     console=False,
+    icon=_WIN_ICON if sys.platform == "win32" and os.path.exists(_WIN_ICON) else None,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
@@ -91,13 +94,13 @@ if sys.platform == "darwin":
     app = BUNDLE(
         exe,
         name="XENONnT-EventViewer.app",
-        icon=None,
+        icon=_MAC_ICON if os.path.exists(_MAC_ICON) else None,
         bundle_identifier="org.xenon.eventviewer",
         info_plist={
             "NSHighResolutionCapable": True,
             "CFBundleName": "XENONnT Event Viewer",
-            "CFBundleShortVersionString": "2.0.6",
-            "CFBundleVersion": "2.0.6",
+            "CFBundleShortVersionString": "2.0.7",
+            "CFBundleVersion": "2.0.7",
             "CFBundleInfoDictionaryVersion": "6.0",
             "CFBundlePackageType": "APPL",
             "LSEnvironment": {
