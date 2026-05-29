@@ -5,16 +5,20 @@ on:
     tags: ["v*"]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
+defaults:
+  run:
+    shell: bash
+
 jobs:
-  # ── Linux ───────────────────────────────────────────────────────
   build-linux:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
+      - name: Checkout without external actions
+        run: |
+          git clone --depth 1 --branch "$GITHUB_REF_NAME" "https://github.com/$GITHUB_REPOSITORY.git" .
 
       - name: Install system deps
         run: |
@@ -25,76 +29,96 @@ jobs:
 
       - name: Install Python deps
         run: |
-          pip install pyside6 matplotlib numpy strax pyinstaller
+          python -m pip install --upgrade pip
+          python -m pip install pyside6 matplotlib numpy strax pyinstaller
 
       - name: Build
         run: |
           pyinstaller EventViewer.spec --distpath dist --workpath /tmp/pyinstaller_linux
 
-      - name: Package release
+      - name: Package
         run: |
           mkdir -p release/XENONnT-EventViewer-linux
           cp dist/XENONnT-EventViewer release/XENONnT-EventViewer-linux/
           cp scripts/output/*.npz release/XENONnT-EventViewer-linux/ 2>/dev/null || true
           cp dali_probe/*.npz release/XENONnT-EventViewer-linux/ 2>/dev/null || true
           cp README.md release/XENONnT-EventViewer-linux/ 2>/dev/null || true
-          cd release && tar czf XENONnT-EventViewer-linux.tar.gz XENONnT-EventViewer-linux/
+          tar -C release -czf release/XENONnT-EventViewer-linux.tar.gz XENONnT-EventViewer-linux
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: linux-build
-          path: release/XENONnT-EventViewer-linux.tar.gz
+      - name: Upload to draft release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || \
+            gh release create "$GITHUB_REF_NAME" --draft --title "$GITHUB_REF_NAME" --generate-notes || true
+          for i in {1..12}; do
+            gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 && break
+            sleep 5
+          done
+          gh release upload "$GITHUB_REF_NAME" release/XENONnT-EventViewer-linux.tar.gz --clobber
 
-  # ── Windows ─────────────────────────────────────────────────────
   build-windows:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
+      - name: Checkout without external actions
+        run: |
+          git clone --depth 1 --branch "$GITHUB_REF_NAME" "https://github.com/$GITHUB_REPOSITORY.git" .
 
       - name: Install Python deps
         run: |
-          pip install pyside6 matplotlib numpy strax pyinstaller
+          python -m pip install --upgrade pip
+          python -m pip install pyside6 matplotlib numpy strax pyinstaller
 
       - name: Build
         run: |
-          pyinstaller EventViewer.spec --distpath dist --workpath $env:TEMP\pyinstaller_win
+          pyinstaller EventViewer.spec --distpath dist --workpath "$RUNNER_TEMP/pyinstaller_win"
 
-      - name: Package release
+      - name: Package
         run: |
-          New-Item -ItemType Directory -Path release\XENONnT-EventViewer-windows -Force
-          Copy-Item dist\XENONnT-EventViewer.exe release\XENONnT-EventViewer-windows\
-          Copy-Item scripts\output\*.npz release\XENONnT-EventViewer-windows\ -ErrorAction SilentlyContinue
-          Copy-Item dali_probe\*.npz release\XENONnT-EventViewer-windows\ -ErrorAction SilentlyContinue
-          Compress-Archive -Path release\XENONnT-EventViewer-windows\* -DestinationPath release\XENONnT-EventViewer-windows.zip
+          mkdir -p release/XENONnT-EventViewer-windows
+          cp dist/XENONnT-EventViewer.exe release/XENONnT-EventViewer-windows/
+          cp scripts/output/*.npz release/XENONnT-EventViewer-windows/ 2>/dev/null || true
+          cp dali_probe/*.npz release/XENONnT-EventViewer-windows/ 2>/dev/null || true
+          python - <<'PY'
+          import shutil
+          shutil.make_archive(
+              "release/XENONnT-EventViewer-windows",
+              "zip",
+              "release/XENONnT-EventViewer-windows",
+          )
+          PY
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: windows-build
-          path: release/XENONnT-EventViewer-windows.zip
+      - name: Upload to draft release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || \
+            gh release create "$GITHUB_REF_NAME" --draft --title "$GITHUB_REF_NAME" --generate-notes || true
+          for i in {1..12}; do
+            gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 && break
+            sleep 5
+          done
+          gh release upload "$GITHUB_REF_NAME" release/XENONnT-EventViewer-windows.zip --clobber
 
-  # ── macOS ARM64 (Apple Silicon) ─────────────────────────────────
   build-macos-arm64:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
+      - name: Checkout without external actions
+        run: |
+          git clone --depth 1 --branch "$GITHUB_REF_NAME" "https://github.com/$GITHUB_REPOSITORY.git" .
 
       - name: Install Python deps
         run: |
-          pip install pyside6 matplotlib numpy strax pyinstaller
+          python3 -m pip install --upgrade pip
+          python3 -m pip install pyside6 matplotlib numpy strax pyinstaller
 
       - name: Build
         run: |
           pyinstaller EventViewer.spec --distpath dist --workpath /tmp/pyinstaller_mac
 
-      - name: Package release (DMG)
+      - name: Package
         run: |
           mkdir -p pkg/XENONnT-EventViewer-macos-arm64
           cp -R dist/XENONnT-EventViewer.app pkg/XENONnT-EventViewer-macos-arm64/
@@ -106,30 +130,36 @@ jobs:
             -ov -format UDZO \
             pkg/XENONnT-EventViewer-macos-arm64.dmg
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: macos-arm64-build
-          path: pkg/XENONnT-EventViewer-macos-arm64.dmg
+      - name: Upload to draft release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || \
+            gh release create "$GITHUB_REF_NAME" --draft --title "$GITHUB_REF_NAME" --generate-notes || true
+          for i in {1..12}; do
+            gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 && break
+            sleep 5
+          done
+          gh release upload "$GITHUB_REF_NAME" pkg/XENONnT-EventViewer-macos-arm64.dmg --clobber
 
-  # ── macOS x64 (Intel) ──────────────────────────────────────────
   build-macos-x64:
     runs-on: macos-13
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
+      - name: Checkout without external actions
+        run: |
+          git clone --depth 1 --branch "$GITHUB_REF_NAME" "https://github.com/$GITHUB_REPOSITORY.git" .
 
       - name: Install Python deps
         run: |
-          pip install pyside6 matplotlib numpy strax pyinstaller
+          python3 -m pip install --upgrade pip
+          python3 -m pip install pyside6 matplotlib numpy strax pyinstaller
 
       - name: Build
         run: |
           pyinstaller EventViewer.spec --distpath dist --workpath /tmp/pyinstaller_mac
 
-      - name: Package release (DMG)
+      - name: Package
         run: |
           mkdir -p pkg/XENONnT-EventViewer-macos-x64
           cp -R dist/XENONnT-EventViewer.app pkg/XENONnT-EventViewer-macos-x64/
@@ -141,28 +171,15 @@ jobs:
             -ov -format UDZO \
             pkg/XENONnT-EventViewer-macos-x64.dmg
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: macos-x64-build
-          path: pkg/XENONnT-EventViewer-macos-x64.dmg
-
-  # ── GitHub Release ──────────────────────────────────────────────
-  release:
-    needs: [build-linux, build-windows, build-macos-arm64, build-macos-x64]
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: |
-            artifacts/linux-build/*.tar.gz
-            artifacts/windows-build/*.zip
-            artifacts/macos-arm64-build/*.dmg
-            artifacts/macos-x64-build/*.dmg
-          draft: true
-          generate_release_notes: true
+      - name: Upload to draft release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || \
+            gh release create "$GITHUB_REF_NAME" --draft --title "$GITHUB_REF_NAME" --generate-notes || true
+          for i in {1..12}; do
+            gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 && break
+            sleep 5
+          done
+          gh release upload "$GITHUB_REF_NAME" pkg/XENONnT-EventViewer-macos-x64.dmg --clobber
