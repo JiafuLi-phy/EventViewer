@@ -154,16 +154,21 @@ class PeakListWidget(QWidget):
         # Height estimate: area / width ≈ average amplitude
         height = float(p["area"]) / width if width > 0 else 0
 
-        return display_type, float(p["area"]), width, rise, height
+        if "time" in p.dtype.names and self._event_time_ns is not None:
+            rel_time = (int(p["time"]) - int(self._event_time_ns)) / 1000
+        else:
+            rel_time = 0
+
+        return display_type, float(p["area"]), width, rise, height, rel_time
 
     def _matches_query(self, p, orig_i, query: str) -> bool:
         if not query:
             return True
-        display_type, area, width, rise, ev_time = self._peak_display_values(p, orig_i)
+        display_type, area, width, rise, height, rel_time = self._peak_display_values(p, orig_i)
         ptype = int(p["type"])
 
         # Parse numeric filters: area>1000, width<50, rise>=10, time<=100
-        numeric_ops = {"area": area, "width": width, "rise": rise, "time": ev_time}
+        numeric_ops = {"area": area, "width": width, "rise": rise, "height": height, "time": rel_time}
         text_tokens = []
         for token in query.lower().replace("#", " ").split():
             matched = False
@@ -212,7 +217,8 @@ class PeakListWidget(QWidget):
             f"{area:.0f}",
             f"{width:.1f}",
             f"{rise:.1f}",
-            f"{ev_time:.1f}",
+            f"{height:.1f}",
+            f"{rel_time:.1f}",
         ]).lower()
         return all(token in haystack for token in text_tokens)
 
@@ -250,7 +256,7 @@ class PeakListWidget(QWidget):
             self._table.insertRow(row)
 
             ptype = int(p["type"])
-            display_type, area, width, rise, height = self._peak_display_values(p, int(orig_i))
+            display_type, area, width, rise, height, rel_time = self._peak_display_values(p, int(orig_i))
 
             # Type
             item = QTableWidgetItem(display_type)

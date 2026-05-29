@@ -143,25 +143,25 @@ class EventBrowser(QWidget):
             self._count_label.setText("0 events")
             return
 
-        # Apply filters if event_info fields exist
-        mask = np.ones(len(events), dtype=bool)
-        if "s1_area" in events.dtype.names:
-            mask &= events["s1_area"] > self._s1_min.value()
-        if "s2_area" in events.dtype.names:
-            mask &= events["s2_area"] > self._s2_min.value()
-
-        filtered = events[mask]
-
-        # Apply event-number search on top of S1/S2 filters.  Users often
-        # type "#38991" from the visible list or only the last few digits.
-        query = self._search_edit.text().strip().lstrip("#")
+        # Event-number search should behave like "find this event", not like a
+        # filter nested under the current S1/S2 cuts.  This lets users jump to
+        # an event even when the default cuts would hide it.
+        query = self._normalize_search_query(self._search_edit.text())
         if query:
-            filtered = filtered[
+            filtered = events[
                 np.array(
-                    [query in str(int(ev["event_number"])) for ev in filtered],
+                    [query in str(int(ev["event_number"])) for ev in events],
                     dtype=bool,
                 )
             ]
+        else:
+            # Apply filters if event_info fields exist
+            mask = np.ones(len(events), dtype=bool)
+            if "s1_area" in events.dtype.names:
+                mask &= events["s1_area"] > self._s1_min.value()
+            if "s2_area" in events.dtype.names:
+                mask &= events["s2_area"] > self._s2_min.value()
+            filtered = events[mask]
 
         # Sort by S2 descending if available
         if "s2_area" in events.dtype.names:
@@ -199,6 +199,14 @@ class EventBrowser(QWidget):
     def _on_search(self, text: str):
         """Filter the event list by event number as the user types."""
         self._populate_list()
+
+    @staticmethod
+    def _normalize_search_query(text: str) -> str:
+        """Return the numeric event query from user text."""
+        lowered = text.strip().lower()
+        for token in ("event", "ev", "#"):
+            lowered = lowered.replace(token, " ")
+        return "".join(ch for ch in lowered if ch.isdigit())
 
     # ── selection ─────────────────────────────────────────────────
 
